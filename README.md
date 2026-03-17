@@ -18,7 +18,7 @@ A web-based application for downloading YouTube videos. Features pause/resume su
 
 ## Installation
 
-[uv](https://docs.astral.sh/uv/) ile kurulum:
+[uv](https://docs.astral.sh/uv/) with installation:
 
 ```bash
 # install uv if not installed
