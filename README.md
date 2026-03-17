@@ -18,24 +18,24 @@ A web-based application for downloading YouTube videos. Features pause/resume su
 
 ## Installation
 
+[uv](https://docs.astral.sh/uv/) ile kurulum:
+
 ```bash
-# Clone the repository
-git clone <repo-url>
+# install uv if not installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# clone the repository
+git clone https://github.com/devdogukan/yt-video-donwloader
 cd yt-video-donwloader
 
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate   # Linux/macOS
-# .venv\Scripts\activate    # Windows
-
-# Install dependencies
-pip install -e .
+# create virtual environment and install dependencies
+uv sync
 ```
 
 ## Running
 
 ```bash
-python app.py
+uv run python app.py
 ```
 
 The app runs at `http://localhost:5000` by default.
