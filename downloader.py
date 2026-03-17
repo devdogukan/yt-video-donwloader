@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 import time
 import queue
@@ -6,6 +7,8 @@ import json
 import yt_dlp
 
 import database as db
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 DOWNLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
@@ -29,8 +32,8 @@ class DownloadTask:
             downloaded = d.get("downloaded_bytes") or 0
             total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
             progress = (downloaded / total * 100) if total else 0
-            speed = d.get("_speed_str", "")
-            eta = d.get("_eta_str", "")
+            speed = _ANSI_RE.sub("", d.get("_speed_str", "")).strip()
+            eta = _ANSI_RE.sub("", d.get("_eta_str", "")).strip()
 
             db.update_progress(self.download_id, downloaded, progress, speed, eta)
             self.manager.broadcast({
@@ -47,6 +50,16 @@ class DownloadTask:
             file_path = d.get("filename", self.output_path)
             db.update_progress(self.download_id, d.get("downloaded_bytes", 0), 100, "", "")
             db.update_file_path(self.download_id, file_path)
+
+    def postprocessor_hook(self, d):
+        if d["status"] == "started" and d.get("postprocessor") == "Merger":
+            db.update_status(self.download_id, "merging")
+            self.manager.broadcast({
+                "type": "status",
+                "id": self.download_id,
+                "status": "merging",
+                "progress": 100,
+            })
 
     def start(self):
         self._stop_event.clear()
@@ -70,6 +83,7 @@ class DownloadTask:
             "no_warnings": True,
             "merge_output_format": "mp4",
             "progress_hooks": [self.progress_hook],
+            "postprocessor_hooks": [self.postprocessor_hook],
         }
 
         try:
@@ -297,17 +311,22 @@ class DownloadManager:
 
         dl = db.get_download(download_id)
         if dl and dl["file_path"]:
-            base_path = dl["file_path"].replace(".%(ext)s", "")
-            for ext in [".mp4", ".webm", ".mkv", ".mp4.part", ".webm.part", ".mkv.part"]:
-                path = base_path + ext
-                if os.path.exists(path):
-                    os.remove(path)
-            import glob
-            for f in glob.glob(base_path + ".*"):
-                try:
-                    os.remove(f)
-                except OSError:
-                    pass
+            file_path = dl["file_path"]
+
+            if "%(ext)s" in file_path:
+                base_path = file_path.replace(".%(ext)s", "")
+                import glob
+                for f in glob.glob(base_path + ".*"):
+                    try:
+                        os.remove(f)
+                    except OSError:
+                        pass
+            else:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                part = file_path + ".part"
+                if os.path.exists(part):
+                    os.remove(part)
 
         db.delete_download(download_id)
         self.broadcast({"type": "deleted", "id": download_id})

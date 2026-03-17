@@ -171,7 +171,7 @@ header h1 svg {
     font-weight: 600;
     line-height: 1.3;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -346,6 +346,11 @@ header h1 svg {
     color: var(--text-secondary);
 }
 
+.status-merging {
+    background: rgba(156, 39, 176, 0.15);
+    color: #ce93d8;
+}
+
 /* Progress Bar */
 .progress-wrapper {
     margin-bottom: 6px;
@@ -376,6 +381,16 @@ header h1 svg {
 
 .progress-fill.error {
     background: var(--accent);
+}
+
+.progress-fill.merging {
+    background: #ce93d8;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
 .progress-stats {

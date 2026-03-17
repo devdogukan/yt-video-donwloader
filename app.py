@@ -46,6 +46,10 @@ def download_start():
     if not url or not format_id or not video_info:
         return jsonify({"error": "url, format_id, and video_info are required"}), 400
 
+    video_id = video_info.get("video_id", "")
+    if video_id and db.has_active_download(video_id):
+        return jsonify({"error": "This video is already in the download list."}), 409
+
     download_id = manager.start_download(url, video_info, format_id, quality_label)
     return jsonify({"id": download_id, "status": "downloading"})
 

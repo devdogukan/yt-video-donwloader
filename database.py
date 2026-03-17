@@ -108,6 +108,16 @@ def get_download(download_id):
     return dict[Any, Any](row) if row else None
 
 
+def has_active_download(video_id):
+    """Check if there is a non-deleted download for this video."""
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT id FROM downloads WHERE video_id = ? LIMIT 1",
+        (video_id,),
+    ).fetchone()
+    return row is not None
+
+
 def delete_download(download_id):
     conn = get_connection()
     conn.execute("DELETE FROM downloads WHERE id = ?", (download_id,))

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,19 +19,17 @@
             </h1>
         </header>
 
-        <!-- URL Input -->
         <section class="url-section">
             <div class="url-input-wrapper">
-                <input type="text" id="urlInput" placeholder="YouTube video linkini yapıştır..." autocomplete="off">
+                <input type="text" id="urlInput" placeholder="Paste a YouTube video link..." autocomplete="off">
                 <button id="fetchBtn" onclick="fetchVideoInfo()">
-                    <span class="btn-text">Bilgi Getir</span>
+                    <span class="btn-text">Fetch Info</span>
                     <span class="btn-loader hidden"></span>
                 </button>
             </div>
             <p id="urlError" class="error-msg hidden"></p>
         </section>
 
-        <!-- Video Info Card -->
         <section id="videoInfo" class="video-info hidden">
             <div class="video-card">
                 <img id="videoThumb" src="" alt="Thumbnail" class="video-thumb">
@@ -39,7 +37,7 @@
                     <h2 id="videoTitle"></h2>
                     <span id="videoDuration" class="video-duration"></span>
                     <div class="quality-selector">
-                        <label for="qualitySelect">Kalite:</label>
+                        <label for="qualitySelect">Quality:</label>
                         <select id="qualitySelect"></select>
                         <span id="estimatedSize" class="estimated-size"></span>
                     </div>
@@ -49,17 +47,16 @@
                             <polyline points="7 10 12 15 17 10"/>
                             <line x1="12" y1="15" x2="12" y2="3"/>
                         </svg>
-                        İndir
+                        Download
                     </button>
                 </div>
             </div>
         </section>
 
-        <!-- Downloads List -->
         <section class="downloads-section">
-            <h2 class="section-title">İndirmeler</h2>
+            <h2 class="section-title">Downloads</h2>
             <div id="downloadsList" class="downloads-list">
-                <p class="empty-state" id="emptyState">Henüz indirme yok.</p>
+                <p class="empty-state">No downloads yet.</p>
             </div>
         </section>
     </div>

@@ -27,11 +27,12 @@ function formatDuration(seconds) {
 
 function statusLabel(status) {
     const labels = {
-        pending: "Bekliyor",
-        downloading: "İndiriliyor",
-        paused: "Duraklatıldı",
-        completed: "Tamamlandı",
-        error: "Hata",
+        pending: "Pending",
+        downloading: "Downloading",
+        merging: "Merging",
+        paused: "Paused",
+        completed: "Completed",
+        error: "Error",
     };
     return labels[status] || status;
 }
@@ -60,7 +61,7 @@ async function fetchVideoInfo() {
     const errorEl = $("#urlError");
 
     btn.disabled = true;
-    btnText.textContent = "Yükleniyor...";
+    btnText.textContent = "Loading...";
     btnLoader.classList.remove("hidden");
     errorEl.classList.add("hidden");
     $("#videoInfo").classList.add("hidden");
@@ -73,7 +74,7 @@ async function fetchVideoInfo() {
         });
         const data = await res.json();
 
-        if (!res.ok) throw new Error(data.error || "Bilgi alınamadı");
+        if (!res.ok) throw new Error(data.error || "Could not fetch video info");
 
         currentVideoInfo = data;
         currentVideoInfo._url = url;
@@ -83,7 +84,7 @@ async function fetchVideoInfo() {
         errorEl.classList.remove("hidden");
     } finally {
         btn.disabled = false;
-        btnText.textContent = "Bilgi Getir";
+        btnText.textContent = "Fetch Info";
         btnLoader.classList.add("hidden");
     }
 }
@@ -142,7 +143,7 @@ async function startDownload() {
         urlInput.value = "";
         currentVideoInfo = null;
     } catch (err) {
-        alert("İndirme başlatılamadı: " + err.message);
+        alert("Download failed: " + err.message);
     }
 }
 
@@ -157,7 +158,7 @@ async function resumeDownload(id) {
 }
 
 async function deleteDownload(id) {
-    if (!confirm("Bu indirmeyi silmek istediğine emin misin?")) return;
+    if (!confirm("Are you sure you want to delete this download?")) return;
     await fetch(`/api/download/${id}`, { method: "DELETE" });
 }
 
@@ -165,17 +166,12 @@ async function deleteDownload(id) {
 
 function renderDownloads() {
     const list = $("#downloadsList");
-    const empty = $("#emptyState");
     const keys = Object.keys(downloads);
 
     if (keys.length === 0) {
-        list.innerHTML = "";
-        list.appendChild(empty);
-        empty.classList.remove("hidden");
+        list.innerHTML = '<p class="empty-state">No downloads yet.</p>';
         return;
     }
-
-    empty.classList.add("hidden");
 
     const sorted = keys
         .map((k) => downloads[k])
@@ -186,32 +182,31 @@ function renderDownloads() {
 
 function buildDownloadItem(dl) {
     const progress = dl.progress || 0;
-    const progressClass =
-        dl.status === "completed" ? "completed" :
-        dl.status === "paused" ? "paused" :
-        dl.status === "error" ? "error" : "";
+    const progressClass = dl.status;
 
     let actionButtons = "";
     if (dl.status === "downloading") {
-        actionButtons = `<button onclick="pauseDownload(${dl.id})" title="Duraklat">⏸ Duraklat</button>`;
+        actionButtons = `<button onclick="pauseDownload(${dl.id})" title="Pause">⏸ Pause</button>`;
     } else if (dl.status === "paused") {
-        actionButtons = `<button onclick="resumeDownload(${dl.id})" title="Devam Et">▶ Devam Et</button>`;
+        actionButtons = `<button onclick="resumeDownload(${dl.id})" title="Resume">▶ Resume</button>`;
     } else if (dl.status === "completed") {
-        actionButtons = `<button onclick="window.open('/api/download/${dl.id}/file','_blank')" title="Oynat">▶ Oynat</button>`;
+        actionButtons = `<button onclick="window.open('/api/download/${dl.id}/file','_blank')" title="Play">▶ Play</button>`;
     }
-    actionButtons += `<button class="danger" onclick="deleteDownload(${dl.id})" title="Sil">✕ Sil</button>`;
+    actionButtons += `<button class="danger" onclick="deleteDownload(${dl.id})" title="Delete">✕ Delete</button>`;
 
-    const speedEta =
-        dl.status === "downloading"
-            ? `${dl.speed || ""} ${dl.eta ? "• " + dl.eta : ""}`
-            : "";
+    let statusLine = "";
+    if (dl.status === "downloading") {
+        statusLine = `${dl.speed || ""} ${dl.eta ? "• " + dl.eta : ""}`;
+    } else if (dl.status === "merging") {
+        statusLine = "Merging video and audio...";
+    }
 
     return `
         <div class="download-item" data-id="${dl.id}">
             <img class="dl-thumb" src="${dl.thumbnail || ""}" alt="" onerror="this.style.display='none'">
             <div class="dl-content">
                 <div class="dl-header">
-                    <span class="dl-title">${escapeHtml(dl.title || "Bilinmeyen Video")}</span>
+                    <span class="dl-title">${escapeHtml(dl.title || "Unknown Video")}</span>
                     <span class="status-badge status-${dl.status}">${statusLabel(dl.status)}</span>
                 </div>
                 <div class="dl-meta">
@@ -223,8 +218,8 @@ function buildDownloadItem(dl) {
                         <div class="progress-fill ${progressClass}" style="width: ${progress}%"></div>
                     </div>
                     <div class="progress-stats">
-                        <span>%${progress.toFixed(1)}</span>
-                        <span>${speedEta}</span>
+                        <span>${progress.toFixed(1)}%</span>
+                        <span>${statusLine}</span>
                     </div>
                 </div>
                 <div class="dl-actions">
@@ -327,7 +322,7 @@ function updateDownloadItemInPlace(id) {
     const stats = el.querySelector(".progress-stats");
     if (stats) {
         const speedEta = `${dl.speed || ""} ${dl.eta ? "• " + dl.eta : ""}`;
-        stats.innerHTML = `<span>%${(dl.progress || 0).toFixed(1)}</span><span>${speedEta}</span>`;
+        stats.innerHTML = `<span>${(dl.progress || 0).toFixed(1)}%</span><span>${speedEta}</span>`;
     }
 }
 
