@@ -87,6 +87,7 @@ header h1 {
 
 .url-input-wrapper input {
     flex: 1;
+    min-width: 0;
     background: transparent;
     border: none;
     outline: none;
@@ -607,6 +608,17 @@ header h1 {
 /* ── Responsive ──────────────────────────────────────────────────── */
 
 @media (max-width: 600px) {
+    .url-input-wrapper {
+        flex-wrap: wrap;
+        row-gap: 10px;
+    }
+
+    .url-input-wrapper button {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 14px;
+    }
+
     .video-card {
         flex-direction: column;
     }
