@@ -6,6 +6,7 @@ import mimetypes
 from flask import Flask, render_template, request, jsonify, Response, send_file
 
 import database as db
+from database import Status
 from downloader import DownloadManager
 from players import open_in_default_player
 
@@ -46,6 +47,7 @@ def download_start():
     quality_label: str = data.get("quality_label", "")
     video_info: dict = data.get("video_info", {})
     concurrent_fragments: int = max(1, min(16, int(data.get("concurrent_fragments", 1))))
+    queued: bool = bool(data.get("queued", False))
 
     if not url or not format_id or not video_info:
         return jsonify({"error": "url, format_id, and video_info are required"}), 400
@@ -54,9 +56,14 @@ def download_start():
     if video_id and db.has_active_download(video_id):
         return jsonify({"error": "This video is already in the download list."}), 409
 
-    download_id = manager.start_download(url, video_info, format_id, quality_label,
-                                         concurrent_fragments)
-    return jsonify({"id": download_id, "status": "downloading"})
+    if queued:
+        download_id = manager.enqueue_download(
+            url, video_info, format_id, quality_label, concurrent_fragments)
+        return jsonify({"id": download_id, "status": Status.QUEUED})
+
+    download_id = manager.start_download(
+        url, video_info, format_id, quality_label, concurrent_fragments)
+    return jsonify({"id": download_id, "status": Status.DOWNLOADING})
 
 
 @app.post("/api/download/<int:download_id>/pause")
@@ -69,9 +76,12 @@ def download_pause(download_id):
 
 @app.post("/api/download/<int:download_id>/resume")
 def download_resume(download_id):
-    ok = manager.resume_download(download_id)
+    data = request.get_json(silent=True) or {}
+    queued = bool(data.get("queued", False))
+    ok = manager.resume_download(download_id, queued=queued)
     if ok:
-        return jsonify({"status": "downloading"})
+        status = Status.QUEUED if queued else Status.DOWNLOADING
+        return jsonify({"status": status})
     return jsonify({"error": "Cannot resume this download"}), 400
 
 
@@ -92,7 +102,7 @@ def downloads_list():
 @app.get("/api/download/<int:download_id>/file")
 def download_file(download_id):
     dl = db.get_download(download_id)
-    if not dl or dl["status"] != "completed":
+    if not dl or dl["status"] != Status.COMPLETED:
         return jsonify({"error": "File not available"}), 404
 
     resolved = _resolve_file_path(dl)
@@ -118,7 +128,7 @@ def _resolve_file_path(dl):
 @app.post("/api/download/<int:download_id>/open")
 def open_download(download_id):
     dl = db.get_download(download_id)
-    if not dl or dl["status"] != "completed":
+    if not dl or dl["status"] != Status.COMPLETED:
         return jsonify({"error": "File not available"}), 404
 
     resolved = _resolve_file_path(dl)
@@ -158,4 +168,4 @@ def downloads_stream():
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app.run(debug=False, threaded=True, host="0.0.0.0", port=5000)
+    app.run(debug=False, threaded=True, host="0.0.0.0", port=6000)

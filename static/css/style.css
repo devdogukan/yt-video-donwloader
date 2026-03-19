@@ -249,8 +249,14 @@ header h1 {
     cursor: pointer;
 }
 
+.download-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 4px;
+}
+
 .download-btn {
-    align-self: flex-start;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -263,7 +269,23 @@ header h1 {
     font-weight: 600;
     cursor: pointer;
     transition: opacity 0.2s;
-    margin-top: 4px;
+}
+
+.queue-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.queue-toggle input[type="checkbox"] {
+    accent-color: var(--blue);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
 }
 
 .download-btn:hover {
@@ -280,10 +302,16 @@ header h1 {
     margin-top: 8px;
 }
 
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
 .section-title {
     font-size: 1.1rem;
     font-weight: 600;
-    margin-bottom: 16px;
     color: var(--text-primary);
     display: flex;
     align-items: center;
@@ -293,6 +321,34 @@ header h1 {
 .section-title .material-symbols-rounded {
     font-size: 24px !important;
     color: var(--text-secondary);
+}
+
+.refresh-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: #555;
+}
+
+.refresh-btn.spinning .material-symbols-rounded {
+    animation: spin 0.6s linear infinite;
+}
+
+.refresh-btn .material-symbols-rounded {
+    font-size: 20px !important;
 }
 
 .downloads-list {
@@ -410,6 +466,11 @@ header h1 {
     color: var(--text-secondary);
 }
 
+.status-queued {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ffb74d;
+}
+
 .status-merging {
     background: rgba(156, 39, 176, 0.15);
     color: #ce93d8;
@@ -447,6 +508,12 @@ header h1 {
 
 .progress-fill.error {
     background: var(--accent);
+}
+
+.progress-fill.queued {
+    background: #ffb74d;
+    width: 100% !important;
+    animation: pulse 1.5s ease-in-out infinite;
 }
 
 .progress-fill.merging {
@@ -510,6 +577,35 @@ header h1 {
     background: rgba(255, 68, 68, 0.1);
     color: var(--accent);
     border-color: var(--accent);
+}
+
+.dl-queue-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+    padding: 8px 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+}
+
+.dl-queue-label:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: #555;
+}
+
+.dl-queue-label input[type="checkbox"] {
+    accent-color: var(--blue);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
 }
 
 /* ── Modal ──────────────────────────────────────────────────────── */

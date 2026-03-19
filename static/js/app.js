@@ -33,6 +33,7 @@ function formatDuration(seconds) {
 function statusLabel(status) {
     const labels = {
         pending: "Pending",
+        queued: "Queued",
         downloading: "Downloading",
         merging: "Merging",
         paused: "Paused",
@@ -170,6 +171,7 @@ async function startDownload() {
                 quality_label: qualityLabel,
                 video_info: currentVideoInfo,
                 concurrent_fragments: parseInt($("#concurrentSelect").value),
+                queued: $("#queueCheckbox").checked,
             }),
         });
         const data = await res.json();
@@ -190,7 +192,13 @@ async function pauseDownload(id) {
 }
 
 async function resumeDownload(id) {
-    await fetch(`/api/download/${id}/resume`, { method: "POST" });
+    const cb = document.querySelector(`.download-item[data-id="${id}"] .dl-queue-toggle`);
+    const queued = cb ? cb.checked : false;
+    await fetch(`/api/download/${id}/resume`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queued }),
+    });
 }
 
 function deleteDownload(id) {
@@ -252,13 +260,17 @@ function renderDownloads() {
 
 function buildDownloadItem(dl) {
     const progress = dl.progress || 0;
-    const progressClass = ["completed", "paused", "merging", "error"].includes(dl.status) ? dl.status : "";
+    const progressClass = ["completed", "paused", "merging", "error", "queued"].includes(dl.status) ? dl.status : "";
 
     let actionButtons = "";
-    if (dl.status === "downloading") {
+    if (dl.status === "queued") {
+        actionButtons = "";
+    } else if (dl.status === "downloading") {
         actionButtons = `<button onclick="pauseDownload(${dl.id})" title="Pause"><span class="material-symbols-rounded">pause</span> Pause</button>`;
     } else if (dl.status === "paused") {
-        actionButtons = `<button onclick="resumeDownload(${dl.id})" title="Resume"><span class="material-symbols-rounded">play_arrow</span> Resume</button>`;
+        const checked = dl.is_queued ? "checked" : "";
+        actionButtons = `<label class="dl-queue-label"><input type="checkbox" class="dl-queue-toggle" ${checked}><span class="material-symbols-rounded" style="font-size:16px">queue</span> Queue</label>`;
+        actionButtons += `<button onclick="resumeDownload(${dl.id})" title="Resume"><span class="material-symbols-rounded">play_arrow</span> Resume</button>`;
     } else if (dl.status === "completed") {
         if (isMobile) {
             actionButtons = `<button onclick="openInBrowser(${dl.id})" title="Play in browser"><span class="material-symbols-rounded">play_arrow</span> Play</button>`;
@@ -270,7 +282,9 @@ function buildDownloadItem(dl) {
     actionButtons += `<button class="danger" onclick="deleteDownload(${dl.id})" title="Delete"><span class="material-symbols-rounded">delete</span> Delete</button>`;
 
     let statusLine = "";
-    if (dl.status === "downloading") {
+    if (dl.status === "queued") {
+        statusLine = "Waiting in queue...";
+    } else if (dl.status === "downloading") {
         statusLine = `${dl.speed || ""} ${dl.eta ? "• " + dl.eta : ""}`;
     } else if (dl.status === "merging") {
         statusLine = "Merging video and audio...";
@@ -340,7 +354,7 @@ function connectSSE() {
     };
 
     evtSource.onerror = () => {
-        // EventSource reconnects automatically after ~3s
+        refreshDownloads();
     };
 }
 
@@ -365,6 +379,9 @@ function handleSSEEvent(event) {
                 }
                 if (event.error_message) {
                     downloads[event.id].error_message = event.error_message;
+                }
+                if (event.is_queued !== undefined) {
+                    downloads[event.id].is_queued = event.is_queued;
                 }
                 renderDownloads();
             }
@@ -403,6 +420,24 @@ function updateDownloadItemInPlace(id) {
     if (stats) {
         const statusLine = `${dl.speed || ""} ${dl.eta ? "• " + dl.eta : ""}`;
         stats.innerHTML = `<span>${(dl.progress || 0).toFixed(1)}%</span><span>${statusLine}</span>`;
+    }
+}
+
+// ── Refresh ─────────────────────────────────────────────────────────────────
+
+async function refreshDownloads() {
+    const btn = $(".refresh-btn");
+    if (btn) btn.classList.add("spinning");
+    try {
+        const res = await fetch("/api/downloads");
+        const list = await res.json();
+        downloads = {};
+        list.forEach((dl) => { downloads[dl.id] = dl; });
+        renderDownloads();
+    } catch (_) {
+        // ignore
+    } finally {
+        if (btn) setTimeout(() => btn.classList.remove("spinning"), 400);
     }
 }
 
