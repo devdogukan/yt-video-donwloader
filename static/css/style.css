@@ -226,6 +226,29 @@ header h1 {
     color: var(--text-secondary);
 }
 
+.concurrent-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.concurrent-selector label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.concurrent-selector select {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    outline: none;
+    cursor: pointer;
+}
+
 .download-btn {
     align-self: flex-start;
     display: inline-flex;

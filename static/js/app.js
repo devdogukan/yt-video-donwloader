@@ -169,6 +169,7 @@ async function startDownload() {
                 format_id: formatId,
                 quality_label: qualityLabel,
                 video_info: currentVideoInfo,
+                concurrent_fragments: parseInt($("#concurrentSelect").value),
             }),
         });
         const data = await res.json();

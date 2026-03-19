@@ -41,10 +41,11 @@ def video_info():
 @app.post("/api/download/start")
 def download_start():
     data = request.get_json(silent=True) or {}
-    url = data.get("url", "").strip()
-    format_id = data.get("format_id", "")
-    quality_label = data.get("quality_label", "")
-    video_info = data.get("video_info", {})
+    url: str = data.get("url", "").strip()
+    format_id: str = data.get("format_id", "")
+    quality_label: str = data.get("quality_label", "")
+    video_info: dict = data.get("video_info", {})
+    concurrent_fragments: int = max(1, min(16, int(data.get("concurrent_fragments", 1))))
 
     if not url or not format_id or not video_info:
         return jsonify({"error": "url, format_id, and video_info are required"}), 400
@@ -53,7 +54,8 @@ def download_start():
     if video_id and db.has_active_download(video_id):
         return jsonify({"error": "This video is already in the download list."}), 409
 
-    download_id = manager.start_download(url, video_info, format_id, quality_label)
+    download_id = manager.start_download(url, video_info, format_id, quality_label,
+                                         concurrent_fragments)
     return jsonify({"id": download_id, "status": "downloading"})
 
 

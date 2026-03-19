@@ -15,12 +15,14 @@ os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 
 
 class DownloadTask:
-    def __init__(self, download_id, url, format_id, output_path, manager):
+    def __init__(self, download_id, url, format_id, output_path, manager,
+                 concurrent_fragments=1):
         self.download_id = download_id
         self.url = url
         self.format_id = format_id
         self.output_path = output_path
         self.manager = manager
+        self.concurrent_fragments = concurrent_fragments
         self._stop_event = threading.Event()
         self._thread = None
 
@@ -82,6 +84,7 @@ class DownloadTask:
             "quiet": True,
             "no_warnings": True,
             "merge_output_format": "mp4",
+            "concurrent_fragment_downloads": self.concurrent_fragments,
             "progress_hooks": [self.progress_hook],
             "postprocessor_hooks": [self.postprocessor_hook],
         }
@@ -245,7 +248,8 @@ class DownloadManager:
 
         return options
 
-    def start_download(self, url, video_info, format_id, quality_label):
+    def start_download(self, url, video_info, format_id, quality_label,
+                       concurrent_fragments=1):
         title = video_info["title"]
         safe_title = "".join(c if c.isalnum() or c in " -_" else "_" for c in title)
         output_path = os.path.join(DOWNLOADS_DIR, f"{safe_title}.%(ext)s")
@@ -268,7 +272,8 @@ class DownloadManager:
             file_path=output_path,
         )
 
-        task = DownloadTask(download_id, url, format_id, output_path, self)
+        task = DownloadTask(download_id, url, format_id, output_path, self,
+                            concurrent_fragments)
         with self._lock:
             self._tasks[download_id] = task
         task.start()
