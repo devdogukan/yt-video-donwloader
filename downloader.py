@@ -350,7 +350,7 @@ class DownloadManager:
 
     def resume_download(self, download_id, queued=False):
         dl = db.get_download(download_id)
-        if not dl or dl["status"] != Status.PAUSED:
+        if not dl or dl["status"] not in (Status.PAUSED, Status.ERROR):
             return False
 
         db.update_is_queued(download_id, queued)

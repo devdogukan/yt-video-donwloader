@@ -459,6 +459,9 @@ header h1 {
 .status-error {
     background: rgba(255, 68, 68, 0.15);
     color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
 }
 
 .status-pending {
@@ -508,6 +511,18 @@ header h1 {
 
 .progress-fill.error {
     background: var(--accent);
+}
+
+.error-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--accent);
+    font-size: 0.78rem;
+}
+
+.error-line .material-symbols-rounded {
+    font-size: 14px;
 }
 
 .progress-fill.queued {

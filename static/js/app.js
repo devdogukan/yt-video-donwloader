@@ -38,7 +38,7 @@ function statusLabel(status) {
         merging: "Merging",
         paused: "Paused",
         completed: "Completed",
-        error: "Error",
+        error: '<span class="material-symbols-rounded" style="font-size:12px">error</span> Error',
     };
     return labels[status] || status;
 }
@@ -271,6 +271,10 @@ function buildDownloadItem(dl) {
         const checked = dl.is_queued ? "checked" : "";
         actionButtons = `<label class="dl-queue-label"><input type="checkbox" class="dl-queue-toggle" ${checked}><span class="material-symbols-rounded" style="font-size:16px">queue</span> Queue</label>`;
         actionButtons += `<button onclick="resumeDownload(${dl.id})" title="Resume"><span class="material-symbols-rounded">play_arrow</span> Resume</button>`;
+    } else if (dl.status === "error") {
+        const checked = dl.is_queued ? "checked" : "";
+        actionButtons = `<label class="dl-queue-label"><input type="checkbox" class="dl-queue-toggle" ${checked}><span class="material-symbols-rounded" style="font-size:16px">queue</span> Queue</label>`;
+        actionButtons += `<button onclick="resumeDownload(${dl.id})" title="Retry"><span class="material-symbols-rounded">refresh</span> Retry</button>`;
     } else if (dl.status === "completed") {
         if (isMobile) {
             actionButtons = `<button onclick="openInBrowser(${dl.id})" title="Play in browser"><span class="material-symbols-rounded">play_arrow</span> Play</button>`;
@@ -288,6 +292,8 @@ function buildDownloadItem(dl) {
         statusLine = `${dl.speed || ""} ${dl.eta ? "• " + dl.eta : ""}`;
     } else if (dl.status === "merging") {
         statusLine = "Merging video and audio...";
+    } else if (dl.status === "error") {
+        statusLine = `<span class="error-line"><span class="material-symbols-rounded">warning</span> ${escapeHtml(dl.error_message || "Unknown error")}</span>`;
     }
 
     return `
