@@ -1,3 +1,4 @@
+import glob
 import os
 import re
 import threading
@@ -13,6 +14,18 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 DOWNLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+
+
+def _is_path_under_dir(path, parent_dir):
+    try:
+        abs_path = os.path.normcase(os.path.abspath(path))
+        abs_parent = os.path.normcase(os.path.abspath(parent_dir))
+        if abs_path == abs_parent:
+            return False
+        prefix = abs_parent + os.sep
+        return abs_path.startswith(prefix)
+    except OSError:
+        return False
 
 
 class DownloadTask:
@@ -384,18 +397,20 @@ class DownloadManager:
 
             if "%(ext)s" in file_path:
                 base_path = file_path.replace(".%(ext)s", "")
-                import glob
                 for f in glob.glob(base_path + ".*"):
+                    if not _is_path_under_dir(f, DOWNLOADS_DIR):
+                        continue
                     try:
                         os.remove(f)
                     except OSError:
                         pass
             else:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                part = file_path + ".part"
-                if os.path.exists(part):
-                    os.remove(part)
+                if _is_path_under_dir(file_path, DOWNLOADS_DIR):
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    part = file_path + ".part"
+                    if os.path.exists(part):
+                        os.remove(part)
 
         db.delete_download(download_id)
         self.broadcast({"type": "deleted", "id": download_id})

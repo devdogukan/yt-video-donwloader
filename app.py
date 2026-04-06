@@ -4,10 +4,11 @@ import os
 import mimetypes
 
 from flask import Flask, render_template, request, jsonify, Response, send_file
+from werkzeug.utils import secure_filename
 
 import database as db
 from database import Status
-from downloader import DownloadManager
+from downloader import DownloadManager, DOWNLOADS_DIR
 from players import open_in_default_player
 
 app = Flask(__name__)
@@ -37,6 +38,68 @@ def video_info():
         return jsonify(info)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+
+def _unique_path_in_downloads_dir(basename):
+    dest = os.path.join(DOWNLOADS_DIR, basename)
+    stem, ext = os.path.splitext(basename)
+    n = 0
+    while os.path.exists(dest):
+        n += 1
+        dest = os.path.join(DOWNLOADS_DIR, f"{stem}_{n}{ext}")
+    return dest
+
+
+@app.post("/api/downloads/local")
+def add_local_download():
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify({"error": "file is required"}), 400
+
+    mime = (f.mimetype or "").split(";")[0].strip()
+    base = secure_filename(f.filename)
+    if not base or base.startswith("."):
+        guess = mimetypes.guess_extension(mime or "") or ".mp4"
+        if guess == ".jpe":
+            guess = ".jpeg"
+        base = f"video{guess}"
+    elif "." not in base:
+        guess = mimetypes.guess_extension(mime or "") or ".mp4"
+        if guess == ".jpe":
+            guess = ".jpeg"
+        base = f"{base}{guess}"
+
+    dest = _unique_path_in_downloads_dir(base)
+    try:
+        f.save(dest)
+    except OSError as e:
+        return jsonify({"error": str(e)}), 500
+
+    resolved = os.path.abspath(dest)
+    title = os.path.basename(resolved)
+    try:
+        size = os.path.getsize(resolved)
+    except OSError:
+        size = None
+
+    download_id = db.create_download(
+        video_id=None,
+        url=None,
+        title=title,
+        thumbnail=None,
+        duration=None,
+        format_id=None,
+        quality_label=None,
+        filesize=size,
+        file_path=resolved,
+        status=Status.COMPLETED,
+        concurrent_fragments=1,
+        is_queued=False,
+    )
+    db.update_progress(download_id, size or 0, 100.0, "", "")
+    dl = db.get_download(download_id)
+    manager.broadcast({"type": "new", "download": dl})
+    return jsonify({"id": download_id, "status": Status.COMPLETED})
 
 
 @app.post("/api/download/start")

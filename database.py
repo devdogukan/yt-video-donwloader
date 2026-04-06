@@ -34,8 +34,8 @@ def init_db():
     conn.execute("""
         CREATE TABLE IF NOT EXISTS downloads (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            video_id        TEXT NOT NULL,
-            url             TEXT NOT NULL,
+            video_id        TEXT,
+            url             TEXT,
             title           TEXT,
             thumbnail       TEXT,
             duration        INTEGER,

@@ -29,6 +29,17 @@
             <p id="urlError" class="error-msg hidden"></p>
         </section>
 
+        <section class="upload-section">
+            <input type="file" id="localVideoInput" class="hidden" accept="video/*">
+            <button type="button" class="upload-card" id="localUploadCard" aria-label="Upload a video from device">
+                <span class="material-symbols-rounded upload-card-icon">upload_file</span>
+                <span class="upload-card-title">Upload video</span>
+                <span class="upload-card-hint">Choose a file or pick from gallery</span>
+                <span class="btn-loader upload-card-loader hidden" aria-hidden="true"></span>
+            </button>
+            <p id="localUploadError" class="error-msg hidden"></p>
+        </section>
+
         <section id="videoInfo" class="video-info hidden">
             <div class="video-card">
                 <img id="videoThumb" src="" alt="Thumbnail" class="video-thumb">

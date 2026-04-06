@@ -87,6 +87,58 @@ urlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") fetchVideoInfo();
 });
 
+const localVideoInput = $("#localVideoInput");
+const localUploadCard = $("#localUploadCard");
+
+localUploadCard.addEventListener("click", () => {
+    if (localUploadCard.disabled) return;
+    localVideoInput.click();
+});
+
+localVideoInput.addEventListener("change", () => {
+    const file = localVideoInput.files && localVideoInput.files[0];
+    if (file) {
+        uploadLocalVideo(file);
+    }
+    localVideoInput.value = "";
+});
+
+async function uploadLocalVideo(file) {
+    const card = localUploadCard;
+    const loader = card.querySelector(".upload-card-loader");
+    const titleEl = card.querySelector(".upload-card-title");
+    const hintEl = card.querySelector(".upload-card-hint");
+    const errorEl = $("#localUploadError");
+    const prevTitle = titleEl.textContent;
+    const prevHint = hintEl.textContent;
+
+    card.disabled = true;
+    loader.classList.remove("hidden");
+    titleEl.textContent = "Uploading…";
+    hintEl.textContent = file.name || "";
+    errorEl.classList.add("hidden");
+
+    const form = new FormData();
+    form.append("file", file, file.name);
+
+    try {
+        const res = await fetch("/api/downloads/local", {
+            method: "POST",
+            body: form,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Upload failed");
+    } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove("hidden");
+    } finally {
+        card.disabled = false;
+        loader.classList.add("hidden");
+        titleEl.textContent = prevTitle;
+        hintEl.textContent = prevHint;
+    }
+}
+
 async function fetchVideoInfo() {
     const url = urlInput.value.trim();
     if (!url) return;
