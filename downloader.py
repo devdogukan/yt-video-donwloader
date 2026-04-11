@@ -11,7 +11,7 @@ import yt_dlp
 
 import database as db
 from database import Status
-from utils import get_or_create_thumbnail
+from utils import get_or_create_thumbnail, THUMB_DIR
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -463,30 +463,31 @@ class DownloadManager:
         self.clear_runtime_state(download_id)
 
         dl = db.get_download(download_id)
-        if dl and dl["file_path"]:
-            file_path = dl["file_path"]
+        if dl:
+            if dl["file_path"]:
+                file_path = dl["file_path"]
 
-            if "%(ext)s" in file_path:
-                base_path = file_path.replace(".%(ext)s", "")
-                for f in glob.glob(base_path + ".*"):
-                    if not _is_path_under_dir(f, DOWNLOADS_DIR):
-                        continue
-                    try:
-                        os.remove(f)
-                    except OSError:
-                        pass
-            else:
-                if _is_path_under_dir(file_path, DOWNLOADS_DIR):
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                    part = file_path + ".part"
-                    if os.path.exists(part):
-                        os.remove(part)
+                if "%(ext)s" in file_path:
+                    base_path = file_path.replace(".%(ext)s", "")
+                    for f in glob.glob(base_path + ".*"):
+                        if not _is_path_under_dir(f, DOWNLOADS_DIR):
+                            continue
+                        try:
+                            os.remove(f)
+                        except OSError:
+                            pass
+                else:
+                    if _is_path_under_dir(file_path, DOWNLOADS_DIR):
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                        part = file_path + ".part"
+                        if os.path.exists(part):
+                            os.remove(part)
 
-        if dl and dl["thumbnail"]:
-            thumbnail_path = dl["thumbnail"]
-            if os.path.exists(thumbnail_path):
-                os.remove(thumbnail_path)
+            if dl["thumbnail"]:
+                thumbnail_path = os.path.join(THUMB_DIR, dl["thumbnail"])
+                if os.path.exists(thumbnail_path):
+                    os.remove(thumbnail_path)
 
         db.delete_download(download_id)
         self.broadcast({"type": "deleted", "id": download_id})
