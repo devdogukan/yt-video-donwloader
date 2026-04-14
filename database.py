@@ -215,3 +215,34 @@ def get_downloads_by_playlist(playlist_id):
         (playlist_id,),
     ).fetchall()
     return [dict[Any, Any](row) for row in rows]
+
+
+def update_download_playlist(download_id, playlist_id):
+    conn = get_connection()
+    conn.execute(
+        "UPDATE downloads SET playlist_id = ? WHERE id = ?",
+        (playlist_id, download_id),
+    )
+    conn.commit()
+
+
+def update_playlist_thumbnail(row_id, thumbnail):
+    conn = get_connection()
+    conn.execute(
+        "UPDATE playlists SET thumbnail = ? WHERE id = ?",
+        (thumbnail, row_id),
+    )
+    conn.commit()
+
+
+def update_playlist_total(playlist_row_id):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT COUNT(*) AS cnt FROM downloads WHERE playlist_id = ?",
+        (playlist_row_id,),
+    ).fetchone()
+    conn.execute(
+        "UPDATE playlists SET total_videos = ? WHERE id = ?",
+        (row["cnt"], playlist_row_id),
+    )
+    conn.commit()

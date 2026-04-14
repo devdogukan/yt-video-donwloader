@@ -95,9 +95,15 @@
                     <span class="material-symbols-rounded">folder</span>
                     Downloads
                 </h2>
-                <button class="refresh-btn" onclick="refreshDownloads()" title="Refresh">
-                    <span class="material-symbols-rounded">refresh</span>
-                </button>
+                <div class="section-header-actions">
+                    <button class="new-playlist-btn" onclick="openCreatePlaylistModal()" title="New Playlist">
+                        <span class="material-symbols-rounded">playlist_add</span>
+                        <span>New Playlist</span>
+                    </button>
+                    <button class="refresh-btn" onclick="refreshDownloads()" title="Refresh">
+                        <span class="material-symbols-rounded">refresh</span>
+                    </button>
+                </div>
             </div>
             <div id="downloadsList" class="downloads-list">
                 <p class="empty-state">No downloads yet.</p>
@@ -105,14 +111,19 @@
         </section>
     </div>
 
+    <input type="file" id="playlistThumbInput" class="hidden" accept="image/*">
+
     <div id="playlistPage" class="playlist-page hidden">
         <div class="playlist-page-header">
             <button id="playlistPageBack" class="playlist-page-back" title="Back">
                 <span class="material-symbols-rounded">arrow_back</span>
             </button>
-            <div class="playlist-page-thumb">
+            <div class="playlist-page-thumb playlist-page-thumb-clickable" id="playlistPageThumbWrap" title="Change thumbnail">
                 <img id="playlistPageThumb" src="" alt="">
                 <span class="material-symbols-rounded playlist-page-thumb-icon">queue_music</span>
+                <div class="playlist-page-thumb-overlay">
+                    <span class="material-symbols-rounded">photo_camera</span>
+                </div>
             </div>
             <div class="playlist-page-info">
                 <h2 id="playlistPageTitle"></h2>
@@ -172,6 +183,60 @@
                     <span id="playlistDownloadBtnText">Download Selected (0)</span>
                     <span class="btn-loader hidden" id="playlistDownloadLoader"></span>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createPlaylistModal" class="modal-overlay hidden">
+        <div class="modal create-playlist-modal">
+            <div class="modal-header">
+                <span class="material-symbols-rounded modal-icon" style="color:var(--blue)">playlist_add</span>
+                <h3 class="modal-title">New Playlist</h3>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="newPlaylistNameInput" class="modal-text-input" placeholder="Playlist name..." autocomplete="off">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-cancel" id="createPlaylistCancel">Cancel</button>
+                <button type="button" class="modal-btn modal-btn-primary" id="createPlaylistSubmit">
+                    <span class="material-symbols-rounded">add</span>
+                    Create
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="addToPlaylistModal" class="modal-overlay hidden">
+        <div class="modal add-to-playlist-modal">
+            <div class="modal-header">
+                <span class="material-symbols-rounded modal-icon" style="color:var(--blue)">playlist_add</span>
+                <h3 class="modal-title">Add to Playlist</h3>
+            </div>
+            <div id="addToPlaylistList" class="add-to-playlist-list"></div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-cancel" id="addToPlaylistCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="thumbPickerModal" class="modal-overlay hidden">
+        <div class="modal thumb-picker-modal">
+            <div class="modal-header">
+                <span class="material-symbols-rounded modal-icon" style="color:var(--blue)">image</span>
+                <h3 class="modal-title">Change Thumbnail</h3>
+            </div>
+            <div class="thumb-picker-body">
+                <button type="button" class="thumb-picker-upload-btn" id="thumbPickerUploadBtn">
+                    <span class="material-symbols-rounded">upload</span>
+                    Upload Image
+                </button>
+                <div class="thumb-picker-divider">
+                    <span>or pick from videos</span>
+                </div>
+                <div id="thumbPickerVideoList" class="thumb-picker-video-list"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-cancel" id="thumbPickerCancel">Cancel</button>
             </div>
         </div>
     </div>

@@ -77,6 +77,96 @@ class VideoService:
             url, video_info, format_id, quality_label, concurrent_fragments)
         return {"id": download_id, "status": Status.DOWNLOADING}
 
+    # ── Custom Playlist Management ───────────────────────────────────────
+
+    def create_custom_playlist(self, title: str) -> dict:
+        title = (title or "").strip()
+        if not title:
+            raise ValidationError("Playlist title is required")
+        row_id = db.create_playlist(
+            playlist_id=None, title=title, thumbnail=None, total_videos=0,
+        )
+        pl = db.get_playlist(row_id)
+        self._manager.broadcast({"type": "playlist_created", "playlist": pl})
+        return pl
+
+    def add_to_playlist(self, playlist_id: int, download_id: int) -> None:
+        pl = db.get_playlist(playlist_id)
+        if not pl:
+            raise NotFoundError("Playlist not found")
+        dl = db.get_download(download_id)
+        if not dl:
+            raise NotFoundError("Download not found")
+        if dl["playlist_id"]:
+            raise ConflictError("Download already belongs to a playlist")
+        db.update_download_playlist(download_id, playlist_id)
+        db.update_playlist_total(playlist_id)
+        if not pl["thumbnail"] and dl.get("thumbnail"):
+            db.update_playlist_thumbnail(playlist_id, dl["thumbnail"])
+            self._manager.broadcast({
+                "type": "playlist_updated",
+                "playlist": db.get_playlist(playlist_id),
+            })
+        updated_dl = db.get_download(download_id)
+        self._manager.broadcast({
+            "type": "download_moved",
+            "download": updated_dl,
+            "playlist_id": playlist_id,
+        })
+
+    def update_playlist_thumbnail_upload(self, playlist_id: int,
+                                           filename: str, mimetype: str | None,
+                                           save_cb) -> dict:
+        pl = db.get_playlist(playlist_id)
+        if not pl:
+            raise NotFoundError("Playlist not found")
+        ext = self._guess_extension(mimetype)
+        safe_name = secure_filename(filename) or "thumb"
+        stem = os.path.splitext(safe_name)[0] or "thumb"
+        dest_name = f"pl_{playlist_id}_{stem}{ext}"
+        dest_path = os.path.join(THUMB_DIR, dest_name)
+        save_cb(dest_path)
+        db.update_playlist_thumbnail(playlist_id, dest_name)
+        updated_pl = db.get_playlist(playlist_id)
+        self._manager.broadcast({
+            "type": "playlist_updated", "playlist": updated_pl,
+        })
+        return updated_pl
+
+    def set_playlist_thumbnail_from_video(self, playlist_id: int,
+                                           download_id: int) -> dict:
+        pl = db.get_playlist(playlist_id)
+        if not pl:
+            raise NotFoundError("Playlist not found")
+        dl = db.get_download(download_id)
+        if not dl:
+            raise NotFoundError("Download not found")
+        thumb = dl.get("thumbnail")
+        if not thumb:
+            raise ValidationError("Selected video has no thumbnail")
+        db.update_playlist_thumbnail(playlist_id, thumb)
+        updated_pl = db.get_playlist(playlist_id)
+        self._manager.broadcast({
+            "type": "playlist_updated", "playlist": updated_pl,
+        })
+        return updated_pl
+
+    def remove_from_playlist(self, download_id: int) -> None:
+        dl = db.get_download(download_id)
+        if not dl:
+            raise NotFoundError("Download not found")
+        old_playlist_id = dl["playlist_id"]
+        if not old_playlist_id:
+            raise ConflictError("Download is not in any playlist")
+        db.update_download_playlist(download_id, None)
+        db.update_playlist_total(old_playlist_id)
+        updated_dl = db.get_download(download_id)
+        self._manager.broadcast({
+            "type": "download_moved",
+            "download": updated_dl,
+            "old_playlist_id": old_playlist_id,
+        })
+
     # ── Playlist Download ─────────────────────────────────────────────────
 
     def start_playlist_download(self, playlist_info: dict, items: list,

@@ -69,6 +69,77 @@ def download_start():
         return jsonify({"error": str(e)}), 409
 
 
+@app.post("/api/playlist/create")
+def playlist_create():
+    data = request.get_json(silent=True) or {}
+    title = data.get("title", "").strip()
+    try:
+        pl = svc.create_custom_playlist(title)
+        return jsonify(pl)
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.post("/api/playlist/<int:playlist_id>/add")
+def playlist_add_download(playlist_id):
+    data = request.get_json(silent=True) or {}
+    download_id = data.get("download_id")
+    if not download_id:
+        return jsonify({"error": "download_id is required"}), 400
+    try:
+        svc.add_to_playlist(playlist_id, int(download_id))
+        return jsonify({"status": "added"})
+    except NotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except ConflictError as e:
+        return jsonify({"error": str(e)}), 409
+
+
+@app.post("/api/playlist/<int:playlist_id>/thumbnail/upload")
+def playlist_thumbnail_upload(playlist_id):
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify({"error": "file is required"}), 400
+    try:
+        pl = svc.update_playlist_thumbnail_upload(
+            playlist_id, f.filename, f.mimetype, f.save)
+        return jsonify(pl)
+    except NotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except OSError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.post("/api/playlist/<int:playlist_id>/thumbnail/pick")
+def playlist_thumbnail_pick(playlist_id):
+    data = request.get_json(silent=True) or {}
+    download_id = data.get("download_id")
+    if not download_id:
+        return jsonify({"error": "download_id is required"}), 400
+    try:
+        pl = svc.set_playlist_thumbnail_from_video(playlist_id, int(download_id))
+        return jsonify(pl)
+    except NotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.post("/api/playlist/<int:playlist_id>/remove")
+def playlist_remove_download(playlist_id):
+    data = request.get_json(silent=True) or {}
+    download_id = data.get("download_id")
+    if not download_id:
+        return jsonify({"error": "download_id is required"}), 400
+    try:
+        svc.remove_from_playlist(int(download_id))
+        return jsonify({"status": "removed"})
+    except NotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except ConflictError as e:
+        return jsonify({"error": str(e)}), 409
+
+
 @app.post("/api/playlist/download")
 def playlist_download():
     data = request.get_json(silent=True) or {}

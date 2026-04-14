@@ -6,6 +6,7 @@ let deleteModalTargetId = null;
 let deletePlaylistTargetId = null;
 let currentPlaylistData = null;
 let activePlaylistPageId = null;
+let addToPlaylistTargetId = null;
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
@@ -554,6 +555,221 @@ function deletePlaylist(playlistId) {
     document.addEventListener("keydown", handleModalEscape);
 }
 
+// ── Create Playlist Modal ────────────────────────────────────────────────────
+
+function openCreatePlaylistModal() {
+    const modal = $("#createPlaylistModal");
+    const input = $("#newPlaylistNameInput");
+    input.value = "";
+    modal.classList.remove("hidden");
+    setTimeout(() => input.focus(), 50);
+    document.addEventListener("keydown", handleCreatePlaylistEscape);
+}
+
+function closeCreatePlaylistModal() {
+    $("#createPlaylistModal").classList.add("hidden");
+    document.removeEventListener("keydown", handleCreatePlaylistEscape);
+}
+
+function handleCreatePlaylistEscape(e) {
+    if (e.key === "Escape") closeCreatePlaylistModal();
+}
+
+async function submitCreatePlaylist() {
+    const input = $("#newPlaylistNameInput");
+    const title = input.value.trim();
+    if (!title) return;
+
+    const btn = $("#createPlaylistSubmit");
+    btn.disabled = true;
+
+    try {
+        const res = await fetch("/api/playlist/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to create playlist");
+        closeCreatePlaylistModal();
+    } catch (err) {
+        alert("Could not create playlist: " + err.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+$("#createPlaylistCancel").addEventListener("click", closeCreatePlaylistModal);
+$("#createPlaylistSubmit").addEventListener("click", submitCreatePlaylist);
+$("#newPlaylistNameInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") submitCreatePlaylist();
+});
+$("#createPlaylistModal").addEventListener("click", (e) => {
+    if (e.target === $("#createPlaylistModal")) closeCreatePlaylistModal();
+});
+
+// ── Add to Playlist Modal ───────────────────────────────────────────────────
+
+function openAddToPlaylistModal(downloadId) {
+    addToPlaylistTargetId = downloadId;
+    const list = $("#addToPlaylistList");
+    const plIds = Object.keys(playlists);
+
+    if (plIds.length === 0) {
+        list.innerHTML = '<p class="empty-state" style="padding:24px 16px">No playlists yet. Create one first.</p>';
+    } else {
+        list.innerHTML = plIds.map((id) => {
+            const pl = playlists[id];
+            return `
+                <button class="add-to-playlist-item" onclick="confirmAddToPlaylist(${id})">
+                    <span class="material-symbols-rounded">playlist_play</span>
+                    <span class="add-to-playlist-item-title">${escapeHtml(pl.title || "Playlist")}</span>
+                    <span class="add-to-playlist-item-count">${pl.total_videos || 0} videos</span>
+                </button>
+            `;
+        }).join("");
+    }
+
+    $("#addToPlaylistModal").classList.remove("hidden");
+    document.addEventListener("keydown", handleAddToPlaylistEscape);
+}
+
+function closeAddToPlaylistModal() {
+    addToPlaylistTargetId = null;
+    $("#addToPlaylistModal").classList.add("hidden");
+    document.removeEventListener("keydown", handleAddToPlaylistEscape);
+}
+
+function handleAddToPlaylistEscape(e) {
+    if (e.key === "Escape") closeAddToPlaylistModal();
+}
+
+async function confirmAddToPlaylist(playlistId) {
+    const downloadId = addToPlaylistTargetId;
+    if (!downloadId) return;
+    closeAddToPlaylistModal();
+
+    try {
+        const res = await fetch(`/api/playlist/${playlistId}/add`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ download_id: downloadId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to add to playlist");
+    } catch (err) {
+        alert("Could not add to playlist: " + err.message);
+    }
+}
+
+async function removeFromPlaylist(downloadId) {
+    const dl = downloads[downloadId];
+    if (!dl || !dl.playlist_id) return;
+
+    try {
+        const res = await fetch(`/api/playlist/${dl.playlist_id}/remove`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ download_id: downloadId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to remove from playlist");
+    } catch (err) {
+        alert("Could not remove from playlist: " + err.message);
+    }
+}
+
+$("#addToPlaylistCancel").addEventListener("click", closeAddToPlaylistModal);
+$("#addToPlaylistModal").addEventListener("click", (e) => {
+    if (e.target === $("#addToPlaylistModal")) closeAddToPlaylistModal();
+});
+
+// ── Thumbnail Picker Modal ──────────────────────────────────────────────────
+
+function openThumbPickerModal() {
+    const plId = activePlaylistPageId;
+    if (!plId) return;
+
+    const group = Object.values(downloads).filter(
+        (d) => String(d.playlist_id) === String(plId) && d.thumbnail
+    );
+
+    const list = $("#thumbPickerVideoList");
+    if (group.length === 0) {
+        list.innerHTML = '<p class="empty-state" style="padding:12px 0">No videos with thumbnails.</p>';
+    } else {
+        list.innerHTML = group.map((dl) => `
+            <button class="thumb-picker-item" onclick="pickVideoThumbnail(${dl.id})">
+                <img src="/api/thumbnail/${dl.thumbnail}" alt="" onerror="this.style.display='none'">
+                <span class="thumb-picker-item-title">${escapeHtml(dl.title || "Untitled")}</span>
+            </button>
+        `).join("");
+    }
+
+    $("#thumbPickerModal").classList.remove("hidden");
+    document.addEventListener("keydown", handleThumbPickerEscape);
+}
+
+function closeThumbPickerModal() {
+    $("#thumbPickerModal").classList.add("hidden");
+    document.removeEventListener("keydown", handleThumbPickerEscape);
+}
+
+function handleThumbPickerEscape(e) {
+    if (e.key === "Escape") closeThumbPickerModal();
+}
+
+async function pickVideoThumbnail(downloadId) {
+    const plId = activePlaylistPageId;
+    if (!plId) return;
+    closeThumbPickerModal();
+
+    try {
+        const res = await fetch(`/api/playlist/${plId}/thumbnail/pick`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ download_id: downloadId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to update thumbnail");
+    } catch (err) {
+        alert("Could not update thumbnail: " + err.message);
+    }
+}
+
+async function uploadPlaylistThumbnail(file) {
+    const plId = activePlaylistPageId;
+    if (!plId) return;
+    closeThumbPickerModal();
+
+    const form = new FormData();
+    form.append("file", file, file.name);
+
+    try {
+        const res = await fetch(`/api/playlist/${plId}/thumbnail/upload`, {
+            method: "POST",
+            body: form,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to upload thumbnail");
+    } catch (err) {
+        alert("Could not upload thumbnail: " + err.message);
+    }
+}
+
+$("#thumbPickerCancel").addEventListener("click", closeThumbPickerModal);
+$("#thumbPickerModal").addEventListener("click", (e) => {
+    if (e.target === $("#thumbPickerModal")) closeThumbPickerModal();
+});
+$("#thumbPickerUploadBtn").addEventListener("click", () => {
+    $("#playlistThumbInput").click();
+});
+$("#playlistThumbInput").addEventListener("change", () => {
+    const file = $("#playlistThumbInput").files && $("#playlistThumbInput").files[0];
+    if (file) uploadPlaylistThumbnail(file);
+    $("#playlistThumbInput").value = "";
+});
+
 // ── Render Downloads List ───────────────────────────────────────────────────
 
 function buildPlaylistPauseResumeBtn(plId, group) {
@@ -639,11 +855,6 @@ function renderDownloads() {
     const list = $("#downloadsList");
     const keys = Object.keys(downloads);
 
-    if (keys.length === 0) {
-        list.innerHTML = '<p class="empty-state">No downloads yet.</p>';
-        return;
-    }
-
     const playlistGroups = {};
     const standalone = [];
 
@@ -656,6 +867,16 @@ function renderDownloads() {
             standalone.push(dl);
         }
     });
+
+    Object.keys(playlists).forEach((plId) => {
+        if (!playlistGroups[plId]) playlistGroups[plId] = [];
+    });
+
+    const hasContent = Object.keys(playlistGroups).length > 0 || standalone.length > 0;
+    if (!hasContent) {
+        list.innerHTML = '<p class="empty-state">No downloads yet.</p>';
+        return;
+    }
 
     let html = "";
 
@@ -674,10 +895,6 @@ function renderDownloads() {
         (a, b) => new Date(b.created_at) - new Date(a.created_at)
     );
     html += sortedStandalone.map((dl) => buildDownloadItem(dl)).join("");
-
-    if (!html) {
-        html = '<p class="empty-state">No downloads yet.</p>';
-    }
 
     list.innerHTML = html;
 }
@@ -745,7 +962,7 @@ function renderPlaylistPage() {
     if (sorted.length === 0) {
         listEl.innerHTML = '<p class="empty-state">No videos in this playlist.</p>';
     } else {
-        listEl.innerHTML = sorted.map((dl) => buildDownloadItem(dl)).join("");
+        listEl.innerHTML = sorted.map((dl) => buildDownloadItem(dl, { inPlaylistPage: true })).join("");
     }
 }
 
@@ -755,9 +972,10 @@ window.addEventListener("popstate", (e) => {
     }
 });
 
-function buildDownloadItem(dl) {
+function buildDownloadItem(dl, opts = {}) {
     const progress = dl.progress || 0;
     const progressClass = ["completed", "paused", "merging", "error", "queued"].includes(dl.status) ? dl.status : "";
+    const inPlaylistPage = opts.inPlaylistPage || false;
 
     let actionButtons = "";
     if (dl.status === "queued") {
@@ -779,6 +997,11 @@ function buildDownloadItem(dl) {
             actionButtons = `<button onclick="openInPlayer(${dl.id})" title="Open in default player"><span class="material-symbols-rounded">play_arrow</span> Play</button>`;
             actionButtons += `<button onclick="openInBrowser(${dl.id})" title="Play in browser"><span class="material-symbols-rounded">open_in_new</span> Browser</button>`;
         }
+    }
+    if (inPlaylistPage) {
+        actionButtons += `<button onclick="removeFromPlaylist(${dl.id})" title="Remove from playlist"><span class="material-symbols-rounded">playlist_remove</span> Remove</button>`;
+    } else if (!dl.playlist_id && Object.keys(playlists).length > 0) {
+        actionButtons += `<button onclick="openAddToPlaylistModal(${dl.id})" title="Add to playlist"><span class="material-symbols-rounded">playlist_add</span></button>`;
     }
     actionButtons += `<button class="danger" onclick="deleteDownload(${dl.id})" title="Delete"><span class="material-symbols-rounded">delete</span> Delete</button>`;
 
@@ -831,6 +1054,18 @@ function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+}
+
+function recalcPlaylistTotals() {
+    const counts = {};
+    Object.values(downloads).forEach((dl) => {
+        if (dl.playlist_id) {
+            counts[dl.playlist_id] = (counts[dl.playlist_id] || 0) + 1;
+        }
+    });
+    Object.keys(playlists).forEach((plId) => {
+        playlists[plId].total_videos = counts[plId] || 0;
+    });
 }
 
 // ── SSE Connection ──────────────────────────────────────────────────────────
@@ -922,6 +1157,32 @@ function handleSSEEvent(event) {
             });
             renderDownloads();
             break;
+
+        case "playlist_created":
+            if (event.playlist) {
+                playlists[event.playlist.id] = event.playlist;
+                renderDownloads();
+            }
+            break;
+
+        case "playlist_updated":
+            if (event.playlist) {
+                playlists[event.playlist.id] = event.playlist;
+                renderDownloads();
+                if (activePlaylistPageId === String(event.playlist.id)) {
+                    renderPlaylistPage();
+                }
+            }
+            break;
+
+        case "download_moved":
+            if (event.download) {
+                downloads[event.download.id] = event.download;
+                recalcPlaylistTotals();
+                renderDownloads();
+                if (activePlaylistPageId) renderPlaylistPage();
+            }
+            break;
     }
 }
 
@@ -1004,5 +1265,8 @@ async function refreshDownloads() {
 createDeleteModal();
 $("#playlistPageBack").addEventListener("click", () => {
     history.back();
+});
+$("#playlistPageThumbWrap").addEventListener("click", () => {
+    if (activePlaylistPageId) openThumbPickerModal();
 });
 connectSSE();
