@@ -106,6 +106,56 @@
         </section>
     </div>
 
+    <div id="playlistModal" class="modal-overlay hidden">
+        <div class="modal playlist-modal">
+            <div class="playlist-modal-header">
+                <div class="playlist-modal-title-row">
+                    <span class="material-symbols-rounded modal-icon" style="color:var(--blue)">queue_music</span>
+                    <h3 class="modal-title" id="playlistModalTitle">Playlist</h3>
+                    <button type="button" class="playlist-modal-close" id="playlistModalClose" title="Close">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                </div>
+                <div class="playlist-modal-controls">
+                    <div class="playlist-modal-control-group">
+                        <label for="plQualitySelect">Quality:</label>
+                        <select id="plQualitySelect"></select>
+                    </div>
+                    <div class="playlist-modal-control-group">
+                        <label for="plConcurrentSelect">Fragments:</label>
+                        <select id="plConcurrentSelect">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4" selected>4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="playlist-modal-toolbar">
+                    <label class="playlist-select-all">
+                        <input type="checkbox" id="plSelectAll" checked>
+                        <span>Select All</span>
+                        <span id="plSelectedCount" class="playlist-count-badge">0/0</span>
+                    </label>
+                    <span class="playlist-total-size" id="plTotalSize"></span>
+                </div>
+            </div>
+            <div class="playlist-video-list" id="playlistVideoList"></div>
+            <div class="playlist-modal-footer">
+                <button type="button" class="modal-btn modal-btn-cancel" id="playlistModalCancel">Cancel</button>
+                <button type="button" class="modal-btn playlist-download-btn" id="playlistDownloadBtn">
+                    <span class="material-symbols-rounded">download</span>
+                    <span id="playlistDownloadBtnText">Download Selected (0)</span>
+                    <span class="btn-loader hidden" id="playlistDownloadLoader"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

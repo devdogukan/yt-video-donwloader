@@ -282,7 +282,7 @@ class DownloadManager:
 
     def _create_download_record(self, url, video_info, format_id, quality_label,
                                 concurrent_fragments=1, status=Status.PENDING,
-                                is_queued=False):
+                                is_queued=False, playlist_id=None):
         title = video_info["title"]
         safe_title = "".join(c if c.isalnum() or c in " -_" else "_" for c in title)
         output_path = os.path.join(DOWNLOADS_DIR, f"{safe_title}.%(ext)s")
@@ -306,6 +306,7 @@ class DownloadManager:
             status=status,
             concurrent_fragments=concurrent_fragments,
             is_queued=is_queued,
+            playlist_id=playlist_id,
         )
         return download_id
 
@@ -322,14 +323,43 @@ class DownloadManager:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
 
+        if info.get("_type") == "playlist" or "entries" in info:
+            return self._build_playlist_info(info)
+
         best_formats = self._build_quality_options(info)
 
         return {
+            "type": "video",
             "video_id": info.get("id", ""),
             "title": info.get("title", ""),
             "thumbnail": info.get("thumbnail", ""),
             "duration": info.get("duration", 0),
             "formats": best_formats,
+        }
+
+    def _build_playlist_info(self, info):
+        entries = []
+        for entry in info.get("entries", []):
+            if entry is None:
+                continue
+            formats = self._build_quality_options(entry)
+            video_id = entry.get("id", "")
+            video_url = entry.get("webpage_url") or entry.get("url") or ""
+            entries.append({
+                "video_id": video_id,
+                "title": entry.get("title", ""),
+                "thumbnail": entry.get("thumbnail") or entry.get("thumbnails", [{}])[-1].get("url", ""),
+                "duration": entry.get("duration", 0),
+                "url": video_url,
+                "formats": formats,
+            })
+
+        return {
+            "type": "playlist",
+            "playlist_id": info.get("id", ""),
+            "playlist_title": info.get("title", ""),
+            "playlist_thumbnail": info.get("thumbnails", [{}])[-1].get("url", "") if info.get("thumbnails") else "",
+            "entries": entries,
         }
 
     def _build_quality_options(self, info):
@@ -381,9 +411,10 @@ class DownloadManager:
     # ── Public download operations ────────────────────────────────────────
 
     def start_download(self, url, video_info, format_id, quality_label,
-                       concurrent_fragments=1):
+                       concurrent_fragments=1, playlist_id=None):
         download_id = self._create_download_record(
             url, video_info, format_id, quality_label, concurrent_fragments,
+            playlist_id=playlist_id,
         )
         dl = db.get_download(download_id)
         self._start_task(download_id, url, format_id, dl["file_path"],
@@ -392,10 +423,10 @@ class DownloadManager:
         return download_id
 
     def enqueue_download(self, url, video_info, format_id, quality_label,
-                         concurrent_fragments=1):
+                         concurrent_fragments=1, playlist_id=None):
         download_id = self._create_download_record(
             url, video_info, format_id, quality_label, concurrent_fragments,
-            status=Status.QUEUED, is_queued=True,
+            status=Status.QUEUED, is_queued=True, playlist_id=playlist_id,
         )
         dl = db.get_download(download_id)
         self.broadcast({"type": "new", "download": dl})

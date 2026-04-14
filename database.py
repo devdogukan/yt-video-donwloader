@@ -31,6 +31,16 @@ def get_connection():
 def init_db():
     conn = get_connection()
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS playlists (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            playlist_id     TEXT,
+            title           TEXT,
+            thumbnail       TEXT,
+            total_videos    INTEGER,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS downloads (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             video_id        TEXT,
@@ -46,35 +56,37 @@ def init_db():
             error_message   TEXT,
             concurrent_fragments INTEGER DEFAULT 1,
             is_queued       INTEGER DEFAULT 0,
+            playlist_id     INTEGER REFERENCES playlists(id),
             created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    _migrate_add_column(conn, "concurrent_fragments", "INTEGER DEFAULT 1")
-    _migrate_add_column(conn, "is_queued", "INTEGER DEFAULT 0")
+    _migrate_add_column(conn, "downloads", "concurrent_fragments", "INTEGER DEFAULT 1")
+    _migrate_add_column(conn, "downloads", "is_queued", "INTEGER DEFAULT 0")
+    _migrate_add_column(conn, "downloads", "playlist_id", "INTEGER")
     conn.commit()
 
 
-def _migrate_add_column(conn, column_name, column_def):
-    cursor = conn.execute("PRAGMA table_info(downloads)")
+def _migrate_add_column(conn, table, column_name, column_def):
+    cursor = conn.execute(f"PRAGMA table_info({table})")
     columns = [row[1] for row in cursor.fetchall()]
     if column_name not in columns:
-        conn.execute(f"ALTER TABLE downloads ADD COLUMN {column_name} {column_def}")
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column_name} {column_def}")
 
 
 def create_download(video_id, url, title, thumbnail, duration, format_id,
                     quality_label, filesize, file_path,
                     status=Status.PENDING, concurrent_fragments=1,
-                    is_queued=False):
+                    is_queued=False, playlist_id=None):
     conn = get_connection()
     cursor = conn.execute(
         """INSERT INTO downloads
            (video_id, url, title, thumbnail, duration, format_id,
             quality_label, filesize, file_path, status, concurrent_fragments,
-            is_queued)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            is_queued, playlist_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (video_id, url, title, thumbnail, duration, format_id,
          quality_label, filesize, file_path, status, concurrent_fragments,
-         int(is_queued)),
+         int(is_queued), playlist_id),
     )
     conn.commit()
     return cursor.lastrowid
@@ -157,3 +169,57 @@ def get_queued_ids():
         (Status.QUEUED,),
     ).fetchall()
     return [row["id"] for row in rows]
+
+
+# ── Playlist helpers ─────────────────────────────────────────────────────────
+
+def create_playlist(playlist_id, title, thumbnail, total_videos):
+    conn = get_connection()
+    cursor = conn.execute(
+        """INSERT INTO playlists (playlist_id, title, thumbnail, total_videos)
+           VALUES (?, ?, ?, ?)""",
+        (playlist_id, title, thumbnail, total_videos),
+    )
+    conn.commit()
+    return cursor.lastrowid
+
+
+def get_playlist(row_id):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM playlists WHERE id = ?", (row_id,)
+    ).fetchone()
+    return dict[Any, Any](row) if row else None
+
+
+def get_all_playlists():
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM playlists ORDER BY created_at DESC"
+    ).fetchall()
+    return [dict[Any, Any](row) for row in rows]
+
+
+def has_playlist(playlist_id):
+    """Check if a playlist with this YouTube ID already exists."""
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT id FROM playlists WHERE playlist_id = ? LIMIT 1",
+        (playlist_id,),
+    ).fetchone()
+    return row["id"] if row else None
+
+
+def delete_playlist(row_id):
+    conn = get_connection()
+    conn.execute("DELETE FROM playlists WHERE id = ?", (row_id,))
+    conn.commit()
+
+
+def get_downloads_by_playlist(playlist_id):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM downloads WHERE playlist_id = ? ORDER BY created_at ASC",
+        (playlist_id,),
+    ).fetchall()
+    return [dict[Any, Any](row) for row in rows]

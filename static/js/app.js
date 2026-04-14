@@ -1,7 +1,11 @@
 let currentVideoInfo = null;
 let downloads = {};
+let playlists = {};
 let evtSource = null;
 let deleteModalTargetId = null;
+let deletePlaylistTargetId = null;
+let currentPlaylistData = null;
+let expandedPlaylists = new Set();
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
@@ -164,9 +168,13 @@ async function fetchVideoInfo() {
 
         if (!res.ok) throw new Error(data.error || "Could not fetch video info");
 
-        currentVideoInfo = data;
-        currentVideoInfo._url = url;
-        renderVideoInfo(data);
+        if (data.type === "playlist") {
+            openPlaylistModal(data, url);
+        } else {
+            currentVideoInfo = data;
+            currentVideoInfo._url = url;
+            renderVideoInfo(data);
+        }
     } catch (err) {
         errorEl.textContent = err.message;
         errorEl.classList.remove("hidden");
@@ -262,8 +270,12 @@ function deleteDownload(id) {
 
 function closeDeleteModal() {
     deleteModalTargetId = null;
+    deletePlaylistTargetId = null;
     const modal = $("#deleteModal");
     modal.classList.add("hidden");
+    modal.querySelector(".modal-title").textContent = "Delete Download";
+    modal.querySelector(".modal-body").textContent =
+        "Are you sure you want to delete this download? This action cannot be undone.";
     document.removeEventListener("keydown", handleModalEscape);
 }
 
@@ -272,6 +284,12 @@ function handleModalEscape(e) {
 }
 
 async function confirmDelete() {
+    if (deletePlaylistTargetId) {
+        const id = deletePlaylistTargetId;
+        closeDeleteModal();
+        await fetch(`/api/playlist/${id}`, { method: "DELETE" });
+        return;
+    }
     if (!deleteModalTargetId) return;
     const id = deleteModalTargetId;
     closeDeleteModal();
@@ -292,6 +310,222 @@ function openInBrowser(id) {
     window.open(`/api/download/${id}/file`, "_blank");
 }
 
+// ── Playlist Modal ──────────────────────────────────────────────────────────
+
+function openPlaylistModal(data, sourceUrl) {
+    currentPlaylistData = data;
+    currentPlaylistData._sourceUrl = sourceUrl;
+
+    $("#playlistModalTitle").textContent = data.playlist_title || "Playlist";
+
+    const qualitySelect = $("#plQualitySelect");
+    qualitySelect.innerHTML = "";
+
+    const allHeights = new Set();
+    data.entries.forEach((e) => {
+        e.formats.forEach((f) => { if (f.height > 0) allHeights.add(f.height); });
+    });
+    const sortedHeights = [...allHeights].sort((a, b) => b - a);
+    sortedHeights.forEach((h) => {
+        const opt = document.createElement("option");
+        opt.value = h;
+        opt.textContent = h >= 2160 ? `${h}p (4K+)` : `${h}p`;
+        qualitySelect.appendChild(opt);
+    });
+    const audioOpt = document.createElement("option");
+    audioOpt.value = "audio";
+    audioOpt.textContent = "Audio Only";
+    qualitySelect.appendChild(audioOpt);
+
+    if (qualitySelect.querySelector('option[value="1080"]')) {
+        qualitySelect.value = "1080";
+    }
+
+    renderPlaylistEntries();
+    qualitySelect.onchange = renderPlaylistEntries;
+
+    $("#plSelectAll").checked = true;
+    updatePlaylistSelectionCount();
+
+    const modal = $("#playlistModal");
+    modal.classList.remove("hidden");
+    document.addEventListener("keydown", handlePlaylistModalEscape);
+}
+
+function closePlaylistModal() {
+    currentPlaylistData = null;
+    $("#playlistModal").classList.add("hidden");
+    document.removeEventListener("keydown", handlePlaylistModalEscape);
+}
+
+function handlePlaylistModalEscape(e) {
+    if (e.key === "Escape") closePlaylistModal();
+}
+
+function renderPlaylistEntries() {
+    if (!currentPlaylistData) return;
+    const list = $("#playlistVideoList");
+    const selectedQuality = $("#plQualitySelect").value;
+
+    list.innerHTML = currentPlaylistData.entries.map((entry, idx) => {
+        const matchedFormat = getFormatForQuality(entry.formats, selectedQuality);
+        const sizeText = matchedFormat && matchedFormat.filesize > 0
+            ? formatBytes(matchedFormat.filesize) : "";
+
+        return `
+            <label class="playlist-video-item" data-idx="${idx}">
+                <input type="checkbox" class="pl-video-cb" data-idx="${idx}" checked>
+                <div class="pl-video-thumb">
+                    <img src="${escapeHtml(entry.thumbnail)}" alt="" onerror="this.style.display='none'">
+                    ${entry.duration ? `<span class="pl-video-duration">${formatDuration(entry.duration)}</span>` : ""}
+                </div>
+                <div class="pl-video-info">
+                    <span class="pl-video-title">${escapeHtml(entry.title || "Untitled")}</span>
+                    <span class="pl-video-meta">${sizeText}</span>
+                </div>
+            </label>
+        `;
+    }).join("");
+
+    list.querySelectorAll(".pl-video-cb").forEach((cb) => {
+        cb.addEventListener("change", updatePlaylistSelectionCount);
+    });
+    updatePlaylistSelectionCount();
+}
+
+function getFormatForQuality(formats, quality) {
+    if (quality === "audio") {
+        return formats.find((f) => f.height === 0) || null;
+    }
+    const h = parseInt(quality);
+    let best = null;
+    for (const f of formats) {
+        if (f.height === h) return f;
+        if (f.height > 0 && f.height <= h) {
+            if (!best || f.height > best.height) best = f;
+        }
+    }
+    return best || formats.find((f) => f.height > 0) || formats[0];
+}
+
+function updatePlaylistSelectionCount() {
+    const checkboxes = document.querySelectorAll(".pl-video-cb");
+    const checked = document.querySelectorAll(".pl-video-cb:checked");
+    const total = checkboxes.length;
+    const selected = checked.length;
+
+    $("#plSelectedCount").textContent = `${selected}/${total}`;
+    $("#playlistDownloadBtnText").textContent = `Download Selected (${selected})`;
+    $("#playlistDownloadBtn").disabled = selected === 0;
+
+    const selectAll = $("#plSelectAll");
+    selectAll.checked = selected === total;
+    selectAll.indeterminate = selected > 0 && selected < total;
+
+    const selectedQuality = $("#plQualitySelect").value;
+    let totalBytes = 0;
+    checked.forEach((cb) => {
+        const idx = parseInt(cb.dataset.idx);
+        const entry = currentPlaylistData?.entries[idx];
+        if (!entry) return;
+        const fmt = getFormatForQuality(entry.formats, selectedQuality);
+        if (fmt && fmt.filesize > 0) totalBytes += fmt.filesize;
+    });
+    const sizeEl = $("#plTotalSize");
+    if (sizeEl) {
+        sizeEl.textContent = totalBytes > 0 ? `~${formatBytes(totalBytes)}` : "";
+    }
+}
+
+function handleSelectAll() {
+    const checked = $("#plSelectAll").checked;
+    document.querySelectorAll(".pl-video-cb").forEach((cb) => { cb.checked = checked; });
+    updatePlaylistSelectionCount();
+}
+
+async function downloadSelectedPlaylistVideos() {
+    if (!currentPlaylistData) return;
+
+    const selectedQuality = $("#plQualitySelect").value;
+    const concurrent = parseInt($("#plConcurrentSelect").value);
+    const checkedBoxes = document.querySelectorAll(".pl-video-cb:checked");
+
+    if (checkedBoxes.length === 0) return;
+
+    const items = [];
+    checkedBoxes.forEach((cb) => {
+        const idx = parseInt(cb.dataset.idx);
+        const entry = currentPlaylistData.entries[idx];
+        if (!entry) return;
+        const fmt = getFormatForQuality(entry.formats, selectedQuality);
+        if (!fmt) return;
+        items.push({
+            url: entry.url,
+            video_info: {
+                video_id: entry.video_id,
+                title: entry.title,
+                thumbnail: entry.thumbnail,
+                duration: entry.duration,
+                formats: entry.formats,
+            },
+            format_id: fmt.format_id,
+            quality_label: fmt.label,
+        });
+    });
+
+    const btn = $("#playlistDownloadBtn");
+    const loader = $("#playlistDownloadLoader");
+    btn.disabled = true;
+    loader.classList.remove("hidden");
+
+    try {
+        const res = await fetch("/api/playlist/download", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                playlist_info: {
+                    playlist_id: currentPlaylistData.playlist_id,
+                    playlist_title: currentPlaylistData.playlist_title,
+                    playlist_thumbnail: currentPlaylistData.playlist_thumbnail,
+                },
+                downloads: items,
+                concurrent_fragments: concurrent,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to start downloads");
+
+        closePlaylistModal();
+        urlInput.value = "";
+    } catch (err) {
+        alert("Playlist download failed: " + err.message);
+    } finally {
+        btn.disabled = false;
+        loader.classList.add("hidden");
+    }
+}
+
+$("#playlistModalClose").addEventListener("click", closePlaylistModal);
+$("#playlistModalCancel").addEventListener("click", closePlaylistModal);
+$("#playlistDownloadBtn").addEventListener("click", downloadSelectedPlaylistVideos);
+$("#plSelectAll").addEventListener("change", handleSelectAll);
+$("#playlistModal").addEventListener("click", (e) => {
+    if (e.target === $("#playlistModal")) closePlaylistModal();
+});
+
+// ── Delete Playlist Modal ───────────────────────────────────────────────────
+
+function deletePlaylist(playlistId) {
+    deletePlaylistTargetId = playlistId;
+    deleteModalTargetId = null;
+    const modal = $("#deleteModal");
+    modal.querySelector(".modal-title").textContent = "Delete Playlist";
+    modal.querySelector(".modal-body").textContent =
+        "Are you sure you want to delete this playlist and all its downloads? This action cannot be undone.";
+    modal.classList.remove("hidden");
+    document.addEventListener("keydown", handleModalEscape);
+}
+
 // ── Render Downloads List ───────────────────────────────────────────────────
 
 function renderDownloads() {
@@ -303,11 +537,98 @@ function renderDownloads() {
         return;
     }
 
-    const sorted = keys
-        .map((k) => downloads[k])
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const playlistGroups = {};
+    const standalone = [];
 
-    list.innerHTML = sorted.map((dl) => buildDownloadItem(dl)).join("");
+    keys.forEach((k) => {
+        const dl = downloads[k];
+        if (dl.playlist_id) {
+            if (!playlistGroups[dl.playlist_id]) playlistGroups[dl.playlist_id] = [];
+            playlistGroups[dl.playlist_id].push(dl);
+        } else {
+            standalone.push(dl);
+        }
+    });
+
+    let html = "";
+
+    const playlistIds = Object.keys(playlistGroups).sort((a, b) => {
+        const plA = playlists[a];
+        const plB = playlists[b];
+        if (plA && plB) return new Date(plB.created_at) - new Date(plA.created_at);
+        return b - a;
+    });
+
+    playlistIds.forEach((plId) => {
+        const group = playlistGroups[plId];
+        const pl = playlists[plId];
+        const title = pl ? pl.title : "Playlist";
+        const thumb = pl ? pl.thumbnail : null;
+        const isExpanded = expandedPlaylists.has(plId);
+
+        const completed = group.filter((d) => d.status === "completed").length;
+        const total = group.length;
+        const aggregateProgress = total > 0
+            ? group.reduce((sum, d) => sum + (d.progress || 0), 0) / total
+            : 0;
+        const allDone = completed === total;
+        const progressClass = allDone ? "completed" : "";
+
+        const sortedGroup = [...group].sort(
+            (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        );
+
+        html += `
+            <div class="playlist-folder ${isExpanded ? "expanded" : "collapsed"}" data-playlist-id="${plId}">
+                <div class="playlist-folder-header" onclick="togglePlaylistFolder('${plId}')">
+                    <div class="playlist-folder-thumb">
+                        ${thumb ? `<img src="/api/thumbnail/${thumb}" alt="" onerror="this.style.display='none'">` : ""}
+                        <span class="material-symbols-rounded playlist-folder-icon">folder</span>
+                    </div>
+                    <div class="playlist-folder-info">
+                        <span class="playlist-folder-title">${escapeHtml(title)}</span>
+                        <span class="playlist-folder-meta">${completed}/${total} completed</span>
+                        <div class="progress-bar" style="margin-top:4px">
+                            <div class="progress-fill ${progressClass}" style="width:${aggregateProgress}%"></div>
+                        </div>
+                    </div>
+                    <div class="playlist-folder-actions">
+                        <button class="danger" onclick="event.stopPropagation(); deletePlaylist(${plId})" title="Delete playlist">
+                            <span class="material-symbols-rounded">delete</span>
+                        </button>
+                        <span class="material-symbols-rounded playlist-folder-chevron">
+                            ${isExpanded ? "expand_less" : "expand_more"}
+                        </span>
+                    </div>
+                </div>
+                ${isExpanded ? `
+                    <div class="playlist-folder-body">
+                        ${sortedGroup.map((dl) => buildDownloadItem(dl)).join("")}
+                    </div>
+                ` : ""}
+            </div>
+        `;
+    });
+
+    const sortedStandalone = standalone.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+    html += sortedStandalone.map((dl) => buildDownloadItem(dl)).join("");
+
+    if (!html) {
+        html = '<p class="empty-state">No downloads yet.</p>';
+    }
+
+    list.innerHTML = html;
+}
+
+function togglePlaylistFolder(plId) {
+    if (expandedPlaylists.has(plId)) {
+        expandedPlaylists.delete(plId);
+    } else {
+        expandedPlaylists.add(plId);
+    }
+    renderDownloads();
 }
 
 function buildDownloadItem(dl) {
@@ -398,11 +719,11 @@ function connectSSE() {
     evtSource = new EventSource("/api/downloads/stream");
 
     evtSource.addEventListener("init", (e) => {
-        const list = JSON.parse(e.data);
+        const data = JSON.parse(e.data);
         downloads = {};
-        list.forEach((dl) => {
-            downloads[dl.id] = dl;
-        });
+        playlists = {};
+        (data.downloads || []).forEach((dl) => { downloads[dl.id] = dl; });
+        (data.playlists || []).forEach((pl) => { playlists[pl.id] = pl; });
         renderDownloads();
     });
 
@@ -456,6 +777,17 @@ function handleSSEEvent(event) {
             delete downloads[event.id];
             renderDownloads();
             break;
+
+        case "playlist_deleted":
+            delete playlists[event.playlist_id];
+            Object.keys(downloads).forEach((k) => {
+                if (downloads[k].playlist_id === event.playlist_id) {
+                    delete downloads[k];
+                }
+            });
+            expandedPlaylists.delete(String(event.playlist_id));
+            renderDownloads();
+            break;
     }
 }
 
@@ -488,9 +820,11 @@ async function refreshDownloads() {
     if (btn) btn.classList.add("spinning");
     try {
         const res = await fetch("/api/downloads");
-        const list = await res.json();
+        const data = await res.json();
         downloads = {};
-        list.forEach((dl) => { downloads[dl.id] = dl; });
+        playlists = {};
+        (data.downloads || []).forEach((dl) => { downloads[dl.id] = dl; });
+        (data.playlists || []).forEach((pl) => { playlists[pl.id] = pl; });
         renderDownloads();
     } catch (_) {
         // ignore

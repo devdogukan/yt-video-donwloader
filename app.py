@@ -123,6 +123,66 @@ def download_start():
     return jsonify({"id": download_id, "status": Status.DOWNLOADING})
 
 
+@app.post("/api/playlist/download")
+def playlist_download():
+    data = request.get_json(silent=True) or {}
+    playlist_info = data.get("playlist_info", {})
+    items = data.get("downloads", [])
+    concurrent_fragments = max(1, min(16, int(data.get("concurrent_fragments", 1))))
+
+    if not playlist_info or not items:
+        return jsonify({"error": "playlist_info and downloads are required"}), 400
+
+    yt_playlist_id = playlist_info.get("playlist_id", "")
+    pl_row_id = db.has_playlist(yt_playlist_id) if yt_playlist_id else None
+
+    if not pl_row_id:
+        pl_thumbnail = get_or_create_thumbnail(
+            thumbnail_url=playlist_info.get("playlist_thumbnail", ""))
+        pl_row_id = db.create_playlist(
+            playlist_id=yt_playlist_id,
+            title=playlist_info.get("playlist_title", ""),
+            thumbnail=pl_thumbnail,
+            total_videos=len(items),
+        )
+
+    results = []
+    for item in items:
+        url = item.get("url", "").strip()
+        video_info = item.get("video_info", {})
+        format_id = item.get("format_id", "")
+        quality_label = item.get("quality_label", "")
+
+        if not url or not video_info or not format_id:
+            continue
+
+        video_id = video_info.get("video_id", "")
+        if video_id and db.has_active_download(video_id):
+            continue
+
+        download_id = manager.enqueue_download(
+            url, video_info, format_id, quality_label,
+            concurrent_fragments, playlist_id=pl_row_id,
+        )
+        results.append({"id": download_id, "status": Status.QUEUED})
+
+    return jsonify({"playlist_id": pl_row_id, "results": results})
+
+
+@app.delete("/api/playlist/<int:playlist_id>")
+def playlist_delete(playlist_id):
+    pl = db.get_playlist(playlist_id)
+    if not pl:
+        return jsonify({"error": "Playlist not found"}), 404
+
+    for dl in db.get_downloads_by_playlist(playlist_id):
+        manager.delete_download(dl["id"])
+
+    db.delete_playlist(playlist_id)
+    manager.broadcast({"type": "playlist_deleted", "playlist_id": playlist_id})
+    return jsonify({"status": "deleted"})
+
+
 @app.post("/api/download/<int:download_id>/pause")
 def download_pause(download_id):
     ok = manager.pause_download(download_id)
@@ -153,7 +213,10 @@ def download_delete(download_id):
 
 @app.get("/api/downloads")
 def downloads_list():
-    return jsonify(manager.get_downloads_with_runtime())
+    return jsonify({
+        "downloads": manager.get_downloads_with_runtime(),
+        "playlists": db.get_all_playlists(),
+    })
 
 
 @app.get("/api/download/<int:download_id>/file")
@@ -210,7 +273,11 @@ def downloads_stream():
     def generate():
         q = manager.subscribe()
         try:
-            initial = json.dumps(manager.get_downloads_with_runtime(), default=str)
+            init_data = {
+                "downloads": manager.get_downloads_with_runtime(),
+                "playlists": db.get_all_playlists(),
+            }
+            initial = json.dumps(init_data, default=str)
             yield f"event: init\ndata: {initial}\n\n"
 
             while True:
