@@ -878,23 +878,36 @@ function renderDownloads() {
         return;
     }
 
+    const unified = [];
+
+    Object.keys(playlistGroups).forEach((plId) => {
+        const pl = playlists[plId];
+        unified.push({
+            kind: "playlist",
+            plId,
+            group: playlistGroups[plId],
+            created_at: pl ? pl.created_at : null,
+        });
+    });
+
+    standalone.forEach((dl) => {
+        unified.push({
+            kind: "download",
+            dl,
+            created_at: dl.created_at,
+        });
+    });
+
+    unified.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
     let html = "";
-
-    const playlistIds = Object.keys(playlistGroups).sort((a, b) => {
-        const plA = playlists[a];
-        const plB = playlists[b];
-        if (plA && plB) return new Date(plB.created_at) - new Date(plA.created_at);
-        return b - a;
+    unified.forEach((item) => {
+        if (item.kind === "playlist") {
+            html += buildPlaylistCard(item.plId, item.group);
+        } else {
+            html += buildDownloadItem(item.dl);
+        }
     });
-
-    playlistIds.forEach((plId) => {
-        html += buildPlaylistCard(plId, playlistGroups[plId]);
-    });
-
-    const sortedStandalone = standalone.sort(
-        (a, b) => new Date(b.created_at) - new Date(a.created_at)
-    );
-    html += sortedStandalone.map((dl) => buildDownloadItem(dl)).join("");
 
     list.innerHTML = html;
 }
