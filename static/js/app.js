@@ -1093,7 +1093,10 @@ function buildDownloadItem(dl, opts = {}) {
     return `
         <div class="download-item" data-id="${dl.id}">
             <div class="dl-thumb-wrap">
-                <img src="/api/thumbnail/${dl.thumbnail}" alt="" onerror="this.style.display='none'">
+                ${dl.thumbnail ? `<img src="/api/thumbnail/${dl.thumbnail}" alt="" onerror="this.style.display='none'">` : ""}
+                <div class="video-card-badge">
+                    <span>${formatDuration(dl.duration)}</span>
+                </div>
             </div>
             <div class="dl-body">
                 <div class="dl-header">
@@ -1128,6 +1131,16 @@ function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+}
+
+function formatDuration(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+
+    return h > 0
+        ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+        : `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function recalcPlaylistTotals() {
