@@ -8,7 +8,7 @@ from config import DOWNLOADS_DIR, THUMB_DIR
 from downloader import DownloadManager
 from models import Status, NotFoundError, ConflictError, ValidationError
 from players import open_in_default_player
-from utils import get_or_create_thumbnail
+from utils import get_or_create_thumbnail, get_video_duration_seconds
 
 
 class VideoService:
@@ -35,13 +35,14 @@ class VideoService:
             size = os.path.getsize(path)
         except OSError:
             size = None
+        duration = get_video_duration_seconds(path)
 
         display_title = title or os.path.basename(path)
 
         download_id = db.create_download(
             video_id=None, url=None, title=display_title,
             thumbnail=get_or_create_thumbnail(video_path=path),
-            duration=None, format_id=None, quality_label=None,
+            duration=duration, format_id=None, quality_label=None,
             filesize=size, file_path=path, status=Status.COMPLETED,
         )
         dl = db.get_download(download_id)

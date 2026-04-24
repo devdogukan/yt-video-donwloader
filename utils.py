@@ -53,3 +53,32 @@ def get_or_create_thumbnail(thumbnail_url: str = None, video_path: str = None,
             return output_filename
 
     return None
+
+
+def get_video_duration_seconds(video_path: str) -> int | None:
+    """Return media duration in whole seconds using ffprobe, if available."""
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        video_path,
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        raw = (result.stdout or "").strip()
+        if not raw:
+            return None
+
+        duration = float(raw)
+        if duration < 0:
+            return None
+        return int(round(duration))
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return None
