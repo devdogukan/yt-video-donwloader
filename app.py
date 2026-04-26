@@ -3,8 +3,9 @@ import json
 from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory
 
 from config import THUMB_DIR
-from models import Status, NotFoundError, ConflictError, ValidationError
+from models import NotFoundError, ConflictError, ValidationError
 from service import VideoService
+from utils import is_ffmpeg_installed
 
 app = Flask(__name__)
 svc = VideoService()
@@ -19,6 +20,12 @@ def index():
 
 
 # ── REST API ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/system/ffmpeg-status")
+def ffmpeg_status():
+    """Check if ffmpeg is installed on the system."""
+    return jsonify({"installed": is_ffmpeg_installed()})
+
 
 @app.post("/api/video/info")
 def video_info():

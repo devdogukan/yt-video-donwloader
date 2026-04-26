@@ -55,6 +55,20 @@ def get_or_create_thumbnail(thumbnail_url: str = None, video_path: str = None,
     return None
 
 
+def is_ffmpeg_installed() -> bool:
+    """Check if ffmpeg is installed and available in PATH."""
+    try:
+        subprocess.run(
+            ["ffmpeg", "-version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+        )
+        return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def get_video_duration_seconds(video_path: str) -> int | None:
     """Return media duration in whole seconds using ffprobe, if available."""
     cmd = [

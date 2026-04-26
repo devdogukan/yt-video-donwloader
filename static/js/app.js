@@ -12,6 +12,35 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
     navigator.userAgent
 );
 
+// ── FFmpeg Check ────────────────────────────────────────────────────────────
+
+async function checkFFmpegStatus() {
+    try {
+        const response = await fetch("/api/system/ffmpeg-status");
+        const data = await response.json();
+        
+        if (!data.installed) {
+            showFFmpegModal();
+        }
+    } catch (error) {
+        console.error("Error checking FFmpeg status:", error);
+    }
+}
+
+function showFFmpegModal() {
+    const modal = $("#ffmpegModal");
+    if (modal) {
+        modal.classList.remove("hidden");
+    }
+}
+
+function closeFFmpegModal() {
+    const modal = $("#ffmpegModal");
+    if (modal) {
+        modal.classList.add("hidden");
+    }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatBytes(bytes) {
@@ -1356,4 +1385,18 @@ $("#playlistPageBack").addEventListener("click", () => {
 $("#playlistPageThumbWrap").addEventListener("click", () => {
     if (activePlaylistPageId) openThumbPickerModal();
 });
+
+// FFmpeg Modal close buttons
+const ffmpegModalClose = $("#ffmpegModalClose");
+const ffmpegModalClose2 = $("#ffmpegModalClose2");
+if (ffmpegModalClose) {
+    ffmpegModalClose.addEventListener("click", closeFFmpegModal);
+}
+if (ffmpegModalClose2) {
+    ffmpegModalClose2.addEventListener("click", closeFFmpegModal);
+}
+
+// Check FFmpeg on page load
+checkFFmpegStatus();
+
 connectSSE();
