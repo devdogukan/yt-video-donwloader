@@ -195,9 +195,9 @@ class DownloadManager:
         with self._state_lock:
             self._runtime_state.pop(download_id, None)
 
-    def get_downloads_with_runtime(self):
+    def get_downloads_with_runtime(self, title = None):
         """Return all DB records enriched with in-memory runtime state."""
-        downloads = db.get_all_downloads()
+        downloads = db.get_all_downloads(title)
         with self._state_lock:
             for dl in downloads:
                 runtime = self._runtime_state.get(dl["id"])

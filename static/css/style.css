@@ -413,6 +413,35 @@ header h1 {
     gap: 8px;
 }
 
+.search-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+}
+
+.search-input-wrapper .material-symbols-rounded {
+    font-size: 20px !important;
+}
+
+.search-input-wrapper input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 0.82rem;
+}
+
+.url-input-wrapper input::placeholder {
+    color: var(--text-secondary);
+}
+
 .new-playlist-btn {
     background: var(--bg-tertiary);
     border: 1px solid var(--border);

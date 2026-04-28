@@ -282,10 +282,10 @@ class VideoService:
 
     # ── Listing ───────────────────────────────────────────────────────────
 
-    def list_downloads(self) -> dict:
+    def list_downloads(self, title = None) -> dict:
         return {
-            "downloads": self._manager.get_downloads_with_runtime(),
-            "playlists": db.get_all_playlists(),
+            "downloads": self._manager.get_downloads_with_runtime(title),
+            "playlists": db.get_all_playlists(title),
         }
 
     # ── File Access ───────────────────────────────────────────────────────

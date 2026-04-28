@@ -111,11 +111,19 @@ def update_file_path_and_thumbnail(download_id, file_path, thumbnail):
     conn.commit()
 
 
-def get_all_downloads():
+def get_all_downloads(title = None):
     conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM downloads ORDER BY created_at DESC"
-    ).fetchall()
+
+    params = []
+    query = "SELECT * FROM downloads"
+
+    if title:
+        query += " WHERE LOWER(title) LIKE LOWER(?)"
+        params.append(f"%{title}%")
+
+    query += " ORDER BY created_at DESC"
+
+    rows = conn.execute(query, params).fetchall()
     return [dict[Any, Any](row) for row in rows]
 
 
@@ -184,11 +192,19 @@ def get_playlist(row_id):
     return dict[Any, Any](row) if row else None
 
 
-def get_all_playlists():
+def get_all_playlists(title = None):
     conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM playlists ORDER BY created_at DESC"
-    ).fetchall()
+
+    params = []
+    query = "SELECT * FROM playlists"
+
+    if title:
+        query += " WHERE LOWER(title) LIKE LOWER(?)"
+        params.append(f"%{title}%")
+
+    query += " ORDER BY created_at DESC"
+
+    rows = conn.execute(query, params).fetchall()
     return [dict[Any, Any](row) for row in rows]
 
 

@@ -232,7 +232,8 @@ def download_delete(download_id):
 
 @app.get("/api/downloads")
 def downloads_list():
-    return jsonify(svc.list_downloads())
+    title = request.args.get("title")
+    return jsonify(svc.list_downloads(title))
 
 
 @app.get("/api/download/<int:download_id>/file")

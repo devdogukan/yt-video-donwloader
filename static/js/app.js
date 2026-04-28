@@ -121,6 +121,11 @@ urlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") fetchVideoInfo();
 });
 
+const searchInput = $("#searchInput");
+searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") refreshDownloads(e.target.value);
+});
+
 const localVideoInput = $("#localVideoInput");
 const localUploadCard = $("#localUploadCard");
 
@@ -1358,11 +1363,11 @@ function updateDownloadItemInPlace(id) {
 
 // ── Refresh ─────────────────────────────────────────────────────────────────
 
-async function refreshDownloads() {
+async function refreshDownloads(title=null) {
     const btn = $(".refresh-btn");
     if (btn) btn.classList.add("spinning");
     try {
-        const res = await fetch("/api/downloads");
+        const res = await fetch(`/api/downloads?title=${encodeURIComponent(title)}`);
         const data = await res.json();
         downloads = {};
         playlists = {};

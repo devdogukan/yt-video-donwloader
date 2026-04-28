@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -96,6 +98,10 @@
                     Downloads
                 </h2>
                 <div class="section-header-actions">
+                    <div class="search-input-wrapper">
+                        <span class="material-symbols-rounded">search</span>
+                        <input type="text" id="searchInput" placeholder="Search by title..." autocomplete="off">
+                    </div>
                     <button class="new-playlist-btn" onclick="openCreatePlaylistModal()" title="New Playlist">
                         <span class="material-symbols-rounded">playlist_add</span>
                         <span>New Playlist</span>
@@ -118,7 +124,8 @@
             <button id="playlistPageBack" class="playlist-page-back" title="Back">
                 <span class="material-symbols-rounded">arrow_back</span>
             </button>
-            <div class="playlist-page-thumb playlist-page-thumb-clickable" id="playlistPageThumbWrap" title="Change thumbnail">
+            <div class="playlist-page-thumb playlist-page-thumb-clickable" id="playlistPageThumbWrap"
+                title="Change thumbnail">
                 <img id="playlistPageThumb" src="" alt="">
                 <span class="material-symbols-rounded playlist-page-thumb-icon">queue_music</span>
                 <div class="playlist-page-thumb-overlay">
@@ -199,7 +206,8 @@
                 <h3 class="modal-title">New Playlist</h3>
             </div>
             <div class="modal-body">
-                <input type="text" id="newPlaylistNameInput" class="modal-text-input" placeholder="Playlist name..." autocomplete="off">
+                <input type="text" id="newPlaylistNameInput" class="modal-text-input" placeholder="Playlist name..."
+                    autocomplete="off">
             </div>
             <div class="modal-actions">
                 <button type="button" class="modal-btn modal-btn-cancel" id="createPlaylistCancel">Cancel</button>
@@ -257,15 +265,16 @@
             </div>
             <div class="modal-body" style="padding: 20px; line-height: 1.6; color: #666;">
                 <p>
-                    <strong>FFmpeg</strong> is required for this application to merge video and audio files for 
+                    <strong>FFmpeg</strong> is required for this application to merge video and audio files for
                     high-quality downloads (720p, 1080p, etc.).
                 </p>
                 <p style="margin-top: 12px;">
                     Please download and install FFmpeg from the official website:
                 </p>
-                <div style="margin-top: 16px; background: #f5f5f5; padding: 12px; border-radius: 6px; text-align: center;">
-                    <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener noreferrer" 
-                       style="color: var(--blue); text-decoration: none; word-break: break-all; font-weight: 500;">
+                <div
+                    style="margin-top: 16px; background: #f5f5f5; padding: 12px; border-radius: 6px; text-align: center;">
+                    <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener noreferrer"
+                        style="color: var(--blue); text-decoration: none; word-break: break-all; font-weight: 500;">
                         https://ffmpeg.org/download.html
                     </a>
                 </div>
@@ -281,4 +290,5 @@
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
+
 </html>
